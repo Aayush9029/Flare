@@ -31,10 +31,10 @@ jobs:
           sudo xcode-select -s "$NEWEST"
           xcodebuild -version
 
+      # install.tuist.io sits behind a Cloudflare challenge that the runner
+      # cannot pass, so the script installer returns HTML instead of bash.
       - name: Install Tuist
-        run: |
-          curl -Ls https://install.tuist.io | bash
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        run: brew install --cask tuist
 
       - name: Resolve version
         id: version
