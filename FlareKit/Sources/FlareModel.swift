@@ -17,6 +17,7 @@ public final class FlareModel {
     @ObservationIgnored @Dependency(\.date.now) private var now
 
     public let preferences = Preferences()
+    public let license = LicenseModel()
 
     public var statusPlaceholder: String {
         if isGeneratingImage { return "Drawing…" }
@@ -200,6 +201,10 @@ public final class FlareModel {
     public func send() {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty, !isStreaming else { return }
+        guard license.isUnlocked else {
+            errorMessage = "Flare needs a license key. Open Settings to buy or activate one."
+            return
+        }
         guard auth.isSignedIn() else {
             errorMessage = AuthError.notSignedIn.localizedDescription
             return

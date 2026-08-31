@@ -19,6 +19,8 @@ struct SendTests {
             $0.apiKeyStore = .ephemeral()
             $0.uuid = .incrementing
             $0.date = .init { Date() }
+            $0.licenseStore = .ephemeral(key: "FLARE-TEST", activationID: "act_1")
+            $0.licenseClient = .granted
         } operation: {
             FlareModel()
         }
@@ -46,6 +48,7 @@ struct SendTests {
     @Test("A sent message is stored together with its reply")
     func storesBothMessages() async throws {
         let model = makeModel()
+        await model.license.start()
         try await withDependencies(from: model) {
             model.newThread()
             model.draft = "hi"
@@ -68,6 +71,7 @@ struct SendTests {
     @Test("Dismissing an unused panel still leaves sending working")
     func discardThenSend() async throws {
         let model = makeModel()
+        await model.license.start()
         try await withDependencies(from: model) {
             model.newThread()
             let discarded = try #require(model.selectedThreadID)
@@ -92,6 +96,7 @@ struct SendTests {
     @Test("A thread that holds messages is never discarded")
     func keepsUsedThread() async throws {
         let model = makeModel()
+        await model.license.start()
         try await withDependencies(from: model) {
             model.newThread()
             let threadID = try #require(model.selectedThreadID)
@@ -109,6 +114,7 @@ struct SendTests {
     @Test("The composer unlocks as soon as the answer lands")
     func streamStateClearsWithTheAnswer() async throws {
         let model = makeModel()
+        await model.license.start()
         try await withDependencies(from: model) {
             model.newThread()
             model.draft = "hi"
@@ -131,10 +137,13 @@ struct SendTests {
             $0.apiKeyStore = .ephemeral()
             $0.uuid = .incrementing
             $0.date = .init { Date() }
+            $0.licenseStore = .ephemeral(key: "FLARE-TEST", activationID: "act_1")
+            $0.licenseClient = .granted
         } operation: {
             FlareModel()
         }
 
+        await model.license.start()
         try await withDependencies(from: model) {
             model.newThread()
             model.draft = "hi"
@@ -173,10 +182,13 @@ struct LiveSendTests {
             $0.windowClient = .testValue
             $0.uuid = .incrementing
             $0.date = .init { Date() }
+            $0.licenseStore = .ephemeral(key: "FLARE-TEST", activationID: "act_1")
+            $0.licenseClient = .granted
         } operation: {
             FlareModel()
         }
 
+        await model.license.start()
         try await withDependencies(from: model) {
             model.newThread()
             let threadID = try #require(model.selectedThreadID)
