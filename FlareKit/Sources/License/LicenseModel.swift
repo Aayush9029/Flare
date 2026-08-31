@@ -9,11 +9,15 @@ public final class LicenseModel {
     public enum Status: Equatable {
         case unknown
         case licensed(displayKey: String?)
+        case trial(daysLeft: Int)
+        case trialExpired
         case unlicensed
         /// Polar was unreachable but a key was activated before, so the app keeps
         /// working. Being offline must not lock someone out of what they bought.
         case grace
     }
+
+    public static let trialDays = 3
 
     @ObservationIgnored @Dependency(\.licenseClient) private var client
     @ObservationIgnored @Dependency(\.licenseStore) private var store
@@ -24,8 +28,8 @@ public final class LicenseModel {
 
     public var isUnlocked: Bool {
         switch status {
-        case .licensed, .grace: true
-        case .unknown, .unlicensed: false
+        case .licensed, .grace, .trial: true
+        case .unknown, .unlicensed, .trialExpired: false
         }
     }
 
@@ -41,10 +45,23 @@ public final class LicenseModel {
         }
         #endif
         guard let key = store.key() else {
-            status = .unlicensed
+            status = trialStatus()
             return
         }
         await refresh(key: key)
+    }
+
+    /// Starts the clock on first launch, then reports what is left of it.
+    private func trialStatus() -> Status {
+        let start = (try? store.beginTrial()) ?? store.trialStart() ?? .now
+        let elapsed = Calendar.current.dateComponents([.day], from: start, to: .now).day ?? 0
+        let remaining = Self.trialDays - elapsed
+        return remaining > 0 ? .trial(daysLeft: remaining) : .trialExpired
+    }
+
+    public var trialDaysLeft: Int? {
+        if case .trial(let days) = status { return days }
+        return nil
     }
 
     public func activate(key: String) async {
@@ -58,7 +75,7 @@ public final class LicenseModel {
             status = license.isValid ? .licensed(displayKey: license.displayKey) : .unlicensed
         } catch {
             lastErrorMessage = error.localizedDescription
-            status = .unlicensed
+            status = trialStatus()
         }
         isWorking = false
     }
@@ -73,7 +90,7 @@ public final class LicenseModel {
         isWorking = true
         try? await client.deactivate(key, activationID)
         try? store.clear()
-        status = .unlicensed
+        status = trialStatus()
         isWorking = false
     }
 
@@ -81,13 +98,13 @@ public final class LicenseModel {
         isWorking = true
         do {
             let license = try await client.validate(key, store.activationID())
-            status = license.isValid ? .licensed(displayKey: license.displayKey) : .unlicensed
+            status = license.isValid ? .licensed(displayKey: license.displayKey) : trialStatus()
             if !license.isValid { lastErrorMessage = LicenseError.invalidKey.localizedDescription }
         } catch LicenseError.offline {
             status = .grace
         } catch {
             lastErrorMessage = error.localizedDescription
-            status = .unlicensed
+            status = trialStatus()
         }
         isWorking = false
     }

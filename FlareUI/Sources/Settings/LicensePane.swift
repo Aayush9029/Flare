@@ -49,7 +49,7 @@ struct LicensePane: View {
             HStack(spacing: 16) {
                 actionButtons
                 Spacer()
-                Text("One-time purchase · up to 3 Macs")
+                Text(model.isUnlocked ? "One-time purchase · up to 3 Macs" : "$9.99 once · up to 3 Macs")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -65,7 +65,9 @@ struct LicensePane: View {
                 Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
             case .grace:
                 Image(systemName: "clock.badge.exclamationmark.fill").foregroundStyle(.orange)
-            case .unlicensed, .unknown:
+            case .trial:
+                Image(systemName: "gift.fill").foregroundStyle(.purple)
+            case .trialExpired, .unlicensed, .unknown:
                 Image(systemName: hasEnteredKey ? "key.horizontal.fill" : "lock.fill")
                     .foregroundStyle(hasEnteredKey ? .purple : .secondary)
             }
@@ -89,7 +91,10 @@ struct LicensePane: View {
             case .grace:
                 Text("Activated, waiting to re-check")
                     .font(.callout)
-            case .unlicensed, .unknown:
+            case .trial(let daysLeft):
+                Text("Free trial, \(daysLeft) day\(daysLeft == 1 ? "" : "s") left")
+                    .font(.callout)
+            case .trialExpired, .unlicensed, .unknown:
                 TextField("FLARE-XXXX-XXXX-XXXX", text: $keyField)
                     .textFieldStyle(.plain)
                     .font(.system(.body, design: .monospaced))
@@ -102,7 +107,17 @@ struct LicensePane: View {
 
     @ViewBuilder
     private var actionButtons: some View {
-        if model.isUnlocked {
+        if case .trial = model.status {
+            Button("BUY FLARE — $9.99") { model.buy() }
+                .buttonStyle(.plain)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.purple)
+            TextField("FLARE-XXXX-XXXX-XXXX", text: $keyField)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.caption, design: .monospaced))
+                .frame(width: 200)
+                .onSubmit { Task { await model.activate(key: keyField) } }
+        } else if model.isUnlocked {
             Button("CHECK NOW") { Task { await model.refreshTapped() } }
                 .buttonStyle(.plain)
                 .font(.caption.weight(.semibold))
@@ -135,7 +150,7 @@ struct LicensePane: View {
             .disabled(!hasEnteredKey || model.isWorking)
 
             if !hasEnteredKey {
-                Button("BUY FLARE — $59.99") { model.buy() }
+                Button("BUY FLARE — $9.99") { model.buy() }
                     .buttonStyle(.plain)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -143,10 +158,21 @@ struct LicensePane: View {
         }
     }
 
+    private var helpMessage: String {
+        switch model.status {
+        case .trial(let daysLeft):
+            "You have \(daysLeft) day\(daysLeft == 1 ? "" : "s") of the free trial left. Flare is $9.99 once, for up to three Macs."
+        case .trialExpired:
+            "Your free trial has ended. Flare is a one-time purchase of $9.99 and your key arrives by email."
+        case .licensed, .grace:
+            "Your key was emailed when you bought Flare. It works on up to three Macs."
+        case .unlicensed, .unknown:
+            "Flare is a one-time purchase of $9.99. Your key arrives by email straight after checkout."
+        }
+    }
+
     private var helpText: some View {
-        Text(model.isUnlocked
-            ? "Your key was emailed when you bought Flare. It works on up to three Macs."
-            : "Flare is a one-time purchase of $59.99. Your key arrives by email straight after checkout.")
+        Text(helpMessage)
             .font(.callout)
             .foregroundStyle(.tertiary)
     }

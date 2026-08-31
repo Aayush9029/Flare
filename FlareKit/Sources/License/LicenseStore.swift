@@ -11,6 +11,10 @@ public struct LicenseStore: Sendable {
     public var activationID: @Sendable () -> String?
     public var save: @Sendable (String, String?) throws -> Void
     public var clear: @Sendable () throws -> Void
+    /// First-launch date for the free trial. Kept in the Keychain so deleting
+    /// and reinstalling the app does not silently restart the clock.
+    public var trialStart: @Sendable () -> Date?
+    public var beginTrial: @Sendable () throws -> Date
 }
 
 extension LicenseStore: DependencyKey {
@@ -31,6 +35,15 @@ extension LicenseStore: DependencyKey {
                     kSecAttrAccount as String: account,
                 ] as CFDictionary)
             }
+        },
+        trialStart: { read("trial").flatMap { ISO8601DateFormatter().date(from: $0) } },
+        beginTrial: {
+            if let existing = read("trial"), let date = ISO8601DateFormatter().date(from: existing) {
+                return date
+            }
+            let now = Date()
+            try write("trial", ISO8601DateFormatter().string(from: now))
+            return now
         }
     )
 
@@ -74,13 +87,26 @@ extension LicenseStore: DependencyKey {
 extension LicenseStore: TestDependencyKey {
     public static let testValue = Self.ephemeral()
 
-    public static func ephemeral(key: String? = nil, activationID: String? = nil) -> Self {
-        let box = LockedBox((key: key, activation: activationID))
+    public static func ephemeral(
+        key: String? = nil,
+        activationID: String? = nil,
+        trialStart: Date? = nil
+    ) -> Self {
+        let box = LockedBox((key: key, activation: activationID, trial: trialStart))
         return Self(
             key: { box.value.key },
             activationID: { box.value.activation },
-            save: { key, activation in box.value = (key, activation ?? box.value.activation) },
-            clear: { box.value = (nil, nil) }
+            save: { key, activation in
+                box.value = (key, activation ?? box.value.activation, box.value.trial)
+            },
+            clear: { box.value = (nil, nil, box.value.trial) },
+            trialStart: { box.value.trial },
+            beginTrial: {
+                if let existing = box.value.trial { return existing }
+                let now = Date()
+                box.value = (box.value.key, box.value.activation, now)
+                return now
+            }
         )
     }
 }

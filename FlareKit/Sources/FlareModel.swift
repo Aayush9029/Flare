@@ -202,7 +202,7 @@ public final class FlareModel {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty, !isStreaming else { return }
         guard license.isUnlocked else {
-            errorMessage = "Flare needs a license key. Open Settings to buy or activate one."
+            errorMessage = "Your free trial has ended. Open Settings to buy Flare for $9.99."
             return
         }
         guard auth.isSignedIn() else {
