@@ -1,0 +1,134 @@
+# Flare
+
+A macOS floating quick-chat driven by your ChatGPT subscription. `⌘⇧Space` opens a
+non-activating glass panel over whatever you are doing; `⌘K` searches every message
+you have ever sent or received. Menu-bar only (`LSUIElement`), unsandboxed, Tuist-generated.
+
+## Layout
+
+| Unit | What |
+|------|------|
+| `Flare/` | App target — entry point, `AppDelegate`, status item, single-instance lock, `AppIcon.icon`, GIF resources |
+| `FlareKit/` | Static framework — auth, chat streaming, SQLite store, search, `FlareModel`, window client |
+| `FlareUI/` | Static framework — panel, composer, command palette, settings, design system |
+| `FlareKitTests/` | Swift Testing suites, including gated live and benchmark suites |
+
+## Commands
+
+```bash
+tuist install                       # resolve packages (needed after Tuist/Package.swift edits)
+tuist generate --no-open            # regenerate the workspace
+xcodebuild build -workspace Flare.xcworkspace -scheme Flare -configuration Debug -destination 'platform=macOS'
+xcodebuild test  -workspace Flare.xcworkspace -scheme FlareKit -destination 'platform=macOS'
+```
+
+Tests live on the **`FlareKit`** scheme, not `Flare` — Tuist attaches a unit-test target
+to the scheme of the target it tests, and there is no `FlareKitTests` scheme.
+
+Two suites are gated so a normal run neither spends quota nor takes seconds. `xcodebuild`
+does not forward the parent environment to the test process; the `TEST_RUNNER_` prefix does:
+
+```bash
+TEST_RUNNER_FLARE_LIVE_TESTS=1 xcodebuild test ...   # hits the real Codex backend
+TEST_RUNNER_FLARE_BENCH=1 xcodebuild test ... -only-testing:FlareKitTests/SearchBenchmarks
+```
+
+## Authentication
+
+Flare signs in as the **Codex CLI's own public OAuth client**, so a ChatGPT subscription
+drives the chat with no API key and no metered billing.
+
+- Client `app_EMoamEEZ73f0CkXaXp7hrann` against `https://auth.openai.com`, PKCE S256.
+- Redirect is fixed at `http://localhost:1455/auth/callback`. The port is not a choice —
+  it is the only URI the authorization server accepts for this client, so `LoopbackServer`
+  binds 1455 and a running `codex login` will block sign-in.
+- Credentials live in `~/Library/Application Support/Flare/` at mode `0600`: `auth.json` for the
+  ChatGPT tokens, `api-key` for an API key. **Not the Keychain** — a Keychain ACL is bound to the
+  signing identity, so every re-signed debug build lost the token.
+- `importFromCodexCLI` adopts `~/.codex/auth.json` directly, skipping the browser.
+- Two credentials, and the credential picks the endpoint. An API key wins when present because the
+  user set it explicitly: it goes to `https://api.openai.com/v1/responses` and bills per token.
+  Otherwise ChatGPT tokens go to `https://chatgpt.com/backend-api/codex/responses` with the headers
+  Codex sends (`chatgpt-account-id`, `OpenAI-Beta: responses=experimental`, `originator: codex_cli_rs`).
+  A ChatGPT subscription is rejected by the public API and an API key is rejected by the Codex
+  backend, so the two are never interchangeable.
+- A GUI launch inherits no shell environment, so `OPENAI_API_KEY` is only visible when Flare is run
+  from a terminal. Settings reads it out of the login shell and stores a copy.
+- `session_id` is minted per request. Reusing one across a cancelled stream leaves the server-side
+  session unreconciled and every later turn in it fails.
+- Refresh omits `scope`; sending a narrower set silently downgrades the access token.
+
+## Storage and search
+
+SQLite via SQLiteData. `chatThreads` and `chatMessages` use `Tagged` IDs; the conformances
+come from sqlite-data's **`Tagged` package trait**, which Tuist does not forward on its own —
+`Tuist/Package.swift` sets `SWIFT_ACTIVE_COMPILATION_CONDITIONS` on `StructuredQueriesCore`
+and `SQLiteData` by hand. Drop that and every `@Table` fails to compile.
+
+Search is FTS5 (`messageSearch`) kept in sync by triggers on `chatMessages`. Three choices
+in `MessageSearch.hits` are load-bearing and were each settled by measurement:
+
+- **`MATERIALIZED`** on the match CTE. Without it SQLite flattens the match into the join and
+  rejects `snippet()` with "unable to use function snippet in the requested context".
+- **`ORDER BY rank LIMIT` inside the CTE.** Ranking every hit before narrowing costs 59 ms on a
+  common word over 20k messages; ranking only the top 300 costs 13 ms.
+- **No porter stemmer.** Porter indexes stems, so the prefix query `notariz*` misses the stem
+  `notar` it came from, breaking search-as-you-type.
+
+`SearchTuning` backs off debounce and limits under Low Power Mode.
+
+Benchmarks (`SearchBenchmarks`, 20k messages, Zipfian corpus) also rejected `LIKE` (cannot do
+multi-term or ranking, 15 ms on rare terms) and trigram (2.9x the index for worse mid-range
+latency). External-content FTS is 39% smaller at equal speed but ties the index to rowids that
+`VACUUM` may renumber, so the standalone table stays.
+
+## Tools
+
+The Codex backend accepts **`web_search`** and **`image_generation`**. It rejects
+`code_interpreter`, `file_search` and `computer_use_preview`, and `local_shell` was removed.
+Both `web_search` and the public API behave the same way here.
+
+Web search is on by default. The guidance that makes the model search unprompted is appended to
+the instructions at request time by `FlareModel.instructions(prompt:webSearch:)` rather than baked
+into the editable system prompt, so a custom prompt keeps working and the toggle takes effect at
+once. Measured behaviour: current facts, news, prices and new APIs search; arithmetic, writing help
+and stable concepts answer directly.
+
+Citations arrive as `response.output_text.annotation.added` with a `url_citation`. They are shown
+under the streaming answer only — they are not persisted, so reopening a chat shows whatever
+inline Markdown links the model wrote.
+
+Generated images arrive base64-encoded in `response.output_item.done` where the item type is
+`image_generation_call` (a ~950 KB `data:` line, which the SSE parser handles). `ImageStore` writes
+the PNG to `Application Support/Flare/images/` and the file name is persisted on the message, so
+images survive a relaunch. Markdown images (`![](https://…)`) render too, via `ImageConfig`.
+
+## Markdown rendering
+
+`SwiftStreamingMarkdown` **must be a dynamic `.framework` in `Tuist/Package.swift`, not a
+`.staticFramework`.** Its `blockConvertibleChildren` casts every node with `as? BlockConvertible`;
+static linking strips the protocol-conformance metadata, every cast fails, and the parser returns
+an empty document for all input — the app renders a blank assistant bubble with no error anywhere.
+`MarkdownRenderingTests` guards this by parsing text and asserting the result differs from parsing
+nothing; if it starts failing, check the product type first.
+
+`MarkdownStyle.config` overrides two package defaults: the body font (the default is sized for a
+full-width chat, not a 470 pt panel) and `CodeBlockConfig.theme`, whose `.default` deliberately
+keeps dark code styling in both appearances. `.xcode` resolves light and dark itself.
+
+## Conventions
+
+- One type per file, Breeze-style, in `FlareUI/Sources/Settings/`.
+- Settings chrome (`SettingsCard`, `ToggleCard`, `SelectableCard`, `SettingsForm`, `cardBand`,
+  `settingFootnote`) is copied from Breeze; `AccountPane` mirrors Breeze's `LicensePane` band
+  layout. Keep them aligned when Breeze changes.
+- The panel has no toolbar and no sidebar by design. Navigation is `⌘K`; dismissal is the
+  hotkey again or Escape. Escape is handled in `FlarePanel.cancelOperation`, not a SwiftUI
+  `keyboardShortcut`: a focused `TextField` swallows the key first.
+- The panel hides when it resigns key, with three exemptions: a tracking `NSMenu` (the model
+  picker lives inside the panel), a key Settings window, and the "Float on top" preference.
+- Every message offers **Copy** (Markdown stripped by `MarkdownPlainText`) and **Copy as
+  Markdown** (the stored source, verbatim).
+- `MarkdownRelay` feeds `StreamedMarkdownView` growing snapshots, not deltas, and replays the
+  current text to late subscribers so a SwiftUI rebuild does not restart the render.
+- Liquid Glass alone is unreadable over an arbitrary desktop; `PanelScrim` sits under panel content.

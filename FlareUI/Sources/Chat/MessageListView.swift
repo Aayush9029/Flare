@@ -28,7 +28,9 @@ struct MessageListView: View {
                             role: message.role,
                             content: message.content,
                             reasoning: message.reasoning,
-                            showsReasoning: model.preferences.showsReasoning
+                            showsReasoning: model.preferences.showsReasoning,
+                            source: model.responseSource,
+                            imageFile: message.imageFile
                         )
                     }
 
@@ -36,7 +38,9 @@ struct MessageListView: View {
                         StreamingMessageRow(
                             response: response,
                             reasoning: reasoning,
-                            showsReasoning: model.preferences.showsReasoning
+                            showsReasoning: model.preferences.showsReasoning,
+                            source: model.responseSource,
+                            citations: model.liveCitations
                         )
                     }
 
@@ -45,6 +49,7 @@ struct MessageListView: View {
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .defaultScrollAnchor(.bottom, for: .sizeChanges)
             .overlay {
                 if messages.isEmpty, !model.isStreaming {
                     EmptyChatView()
@@ -68,7 +73,7 @@ private struct EmptyChatView: View {
         ContentUnavailableView {
             Label("Ask anything", systemImage: "sparkle")
         } description: {
-            Text("Flare answers with your ChatGPT account and keeps every chat on this Mac.")
+            Text("Answers stream from OpenAI. Every chat stays on this Mac.")
         }
     }
 }

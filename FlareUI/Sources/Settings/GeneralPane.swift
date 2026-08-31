@@ -17,7 +17,7 @@ struct GeneralPane: View {
                         isOn: launchAtLogin.isEnabled,
                         action: { launchAtLogin.set(!launchAtLogin.isEnabled) }
                     ) {
-                        SettingsIllustration(symbol: "power", tint: .green)
+                        AnimatedImage(resource: SettingsIllustration.launchAtLogin)
                     }
 
                     ToggleCard(
@@ -27,7 +27,7 @@ struct GeneralPane: View {
                         isOn: preferences.showsDockIcon,
                         action: { preferences.$showsDockIcon.withLock { $0.toggle() } }
                     ) {
-                        SettingsIllustration(symbol: "dock.rectangle", tint: .blue)
+                        AnimatedImage(resource: SettingsIllustration.dockIcon)
                     }
                 }
                 .padding(.vertical, 6)
@@ -42,7 +42,16 @@ struct GeneralPane: View {
             }
 
             Section("Panel") {
-                Toggle("Start a new chat each time the panel opens", isOn: Binding(preferences.$newThreadOnOpen))
+                Toggle("Search the web when it helps", isOn: Binding(preferences.$webSearchEnabled))
+                Toggle("Generate images when asked", isOn: Binding(preferences.$imagesEnabled))
+                Toggle("Float on top", isOn: Binding(preferences.$staysOnTop))
+                Text("Keeps the panel above other windows and stops it closing when it loses focus. Escape and the hotkey still close it.")
+                    .settingFootnote()
+                Picker("When Flare opens", selection: Binding(preferences.$newThreadOnOpen)) {
+                    Text("Resume the last chat").tag(false)
+                    Text("Start a new chat").tag(true)
+                }
+                .pickerStyle(.inline)
                 Toggle("Show the model's reasoning summary", isOn: Binding(preferences.$showsReasoning))
             }
         }

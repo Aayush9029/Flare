@@ -2,10 +2,7 @@ import Foundation
 import Network
 import os
 
-/// Single-shot HTTP listener for the OAuth redirect.
-///
-/// The port is not ours to choose: `app_EMoamEEZ73f0CkXaXp7hrann` registers
-/// `http://localhost:1455/auth/callback` as its only redirect URI.
+/// Port 1455 is fixed: it is the only redirect URI registered for the Codex client.
 public actor LoopbackServer {
     public struct CallbackTimeout: Error {}
     public struct PortUnavailable: Error {}
@@ -51,15 +48,8 @@ public actor LoopbackServer {
 
     private static func accept(on listener: NWListener, path: String) async throws -> [String: String] {
         try await withCheckedThrowingContinuation { continuation in
-            let resumed = OSAllocatedUnfairLock(initialState: false)
-            func finish(_ result: Result<[String: String], Error>) {
-                let alreadyResumed = resumed.withLock { done -> Bool in
-                    defer { done = true }
-                    return done
-                }
-                guard !alreadyResumed else { return }
-                continuation.resume(with: result)
-            }
+            let resumer = Resumer(continuation)
+            let finish: @Sendable (Result<[String: String], Error>) -> Void = { resumer.finish($0) }
 
             listener.newConnectionHandler = { connection in
                 connection.start(queue: .global(qos: .userInitiated))
@@ -90,6 +80,22 @@ public actor LoopbackServer {
                 if case .failed(let error) = state { finish(.failure(error)) }
             }
             listener.start(queue: .global(qos: .userInitiated))
+        }
+    }
+
+    private final class Resumer: Sendable {
+        private let state: OSAllocatedUnfairLock<CheckedContinuation<[String: String], Error>?>
+
+        init(_ continuation: CheckedContinuation<[String: String], Error>) {
+            state = OSAllocatedUnfairLock(initialState: continuation)
+        }
+
+        func finish(_ result: Result<[String: String], Error>) {
+            let continuation = state.withLock { stored -> CheckedContinuation<[String: String], Error>? in
+                defer { stored = nil }
+                return stored
+            }
+            continuation?.resume(with: result)
         }
     }
 

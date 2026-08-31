@@ -1,6 +1,5 @@
 import Foundation
 
-/// Reassembles `data:` payloads from a byte stream of server-sent events.
 struct SSEParser {
     private var buffer = Data()
 

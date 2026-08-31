@@ -11,71 +11,32 @@ public struct PanelContentView: View {
     }
 
     public var body: some View {
-        HStack(spacing: 0) {
-            if model.isSidebarVisible {
-                ThreadSidebar(model: model)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-                Divider().opacity(0.5)
+        VStack(spacing: 0) {
+            if let threadID = model.selectedThreadID {
+                MessageListView(threadID: threadID, model: model)
+            } else {
+                Spacer()
             }
-
-            VStack(spacing: 0) {
-                toolbar
-                Divider().opacity(0.5)
-                if let threadID = model.selectedThreadID {
-                    MessageListView(threadID: threadID, model: model)
-                } else {
-                    Spacer()
-                }
-                ComposerView(model: model)
+            ComposerView(model: model)
+        }
+        .background(PanelScrim())
+        .overlay(alignment: .top) {
+            if model.palette.isPresented {
+                CommandPaletteView(model: model)
+                    .padding(.top, 60)
+                    .transition(.scale(scale: 0.96, anchor: .top).combined(with: .opacity))
             }
         }
-        .animation(.bouncy(duration: 0.3), value: model.isSidebarVisible)
+        .animation(.bouncy(duration: 0.28), value: model.palette.isPresented)
         .background(hiddenShortcuts)
     }
 
-    private var toolbar: some View {
-        HStack(spacing: 8) {
-            Button {
-                model.isSidebarVisible.toggle()
-            } label: {
-                Image(systemName: "sidebar.leading")
-            }
-            .buttonStyle(.plain)
-            .help("Toggle chat list (⌘L)")
-
-            Text(model.preferences.model.displayName)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-
-            Spacer()
-
-            Button(action: onOpenSettings) {
-                Image(systemName: "gearshape")
-            }
-            .buttonStyle(.plain)
-            .help("Settings (⌘,)")
-
-            Button(action: model.hide) {
-                Image(systemName: "xmark")
-            }
-            .buttonStyle(.plain)
-            .help("Close (Escape)")
-        }
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-    }
-
-    /// Key equivalents the panel answers to. Hidden rather than rendered so the
-    /// chrome stays clean; a borderless panel has no menu bar to hang them off.
     private var hiddenShortcuts: some View {
         Group {
-            Button("Close") { model.hide() }
-                .keyboardShortcut(.escape, modifiers: [])
+            Button("Search") { model.togglePalette() }
+                .keyboardShortcut("k", modifiers: .command)
             Button("New Chat") { model.newThread() }
                 .keyboardShortcut("n", modifiers: .command)
-            Button("Toggle Sidebar") { model.isSidebarVisible.toggle() }
-                .keyboardShortcut("l", modifiers: .command)
             Button("Stop") { model.stopStreaming() }
                 .keyboardShortcut(".", modifiers: .command)
             Button("Settings") { onOpenSettings() }

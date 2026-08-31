@@ -8,6 +8,8 @@ public struct WindowClient: Sendable {
     public var hide: @MainActor @Sendable () -> Void
     public var reposition: @MainActor @Sendable () -> Void
     public var setResignHandler: @MainActor @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
+    public var setCancelHandler: @MainActor @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
+    public var setStaysOnTop: @MainActor @Sendable (Bool) -> Void
     public var showSettings: @MainActor @Sendable (_ content: NSView) -> Void
 }
 
@@ -20,6 +22,8 @@ extension WindowClient: DependencyKey {
             hide: { PanelHost.shared.hide() },
             reposition: { PanelHost.shared.reposition() },
             setResignHandler: { handler in PanelHost.shared.onResign = handler },
+            setCancelHandler: { handler in PanelHost.shared.setCancelHandler(handler) },
+            setStaysOnTop: { PanelHost.shared.staysOnTop = $0 },
             showSettings: { content in PanelHost.shared.showSettings(content) }
         )
     }
@@ -33,6 +37,8 @@ extension WindowClient: TestDependencyKey {
         hide: {},
         reposition: {},
         setResignHandler: { _ in },
+        setCancelHandler: { _ in },
+        setStaysOnTop: { _ in },
         showSettings: { _ in }
     )
 }
@@ -45,18 +51,41 @@ public extension DependencyValues {
 }
 
 private final class FlarePanel: NSPanel {
+    var onCancel: (() -> Void)?
+
     override var canBecomeKey: Bool { true }
+
+    // A focused TextField swallows Escape before any SwiftUI keyboardShortcut sees
+    // it, so the dismissal is handled here where nothing can intercept it first.
+    override func cancelOperation(_ sender: Any?) {
+        onCancel?()
+    }
 }
 
 @MainActor
 private final class PanelHost: NSObject, NSWindowDelegate {
     static let shared = PanelHost()
 
-    var panel: NSPanel?
+    override init() {
+        super.init()
+        // A Menu or Picker inside the panel takes key status away from it. Without
+        // this the panel would hide itself the moment the model picker opened.
+        let center = NotificationCenter.default
+        center.addObserver(
+            forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main
+        ) { _ in MainActor.assumeIsolated { PanelHost.shared.isMenuTracking = true } }
+        center.addObserver(
+            forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main
+        ) { _ in MainActor.assumeIsolated { PanelHost.shared.isMenuTracking = false } }
+    }
+
+    var panel: FlarePanel?
     var settingsWindow: NSWindow?
     var onResign: (@MainActor @Sendable () -> Void)?
+    private var isMenuTracking = false
+    var staysOnTop = false
 
-    private let panelSize = NSSize(width: 720, height: 560)
+    private let panelSize = NSSize(width: 470, height: 660)
     private let radius: CGFloat = 20
 
     func createPanel(_ content: NSView) {
@@ -67,7 +96,9 @@ private final class PanelHost: NSObject, NSWindowDelegate {
             defer: false
         )
         panel.isFloatingPanel = true
-        panel.level = .popUpMenu
+        // .floating, not .popUpMenu: a Menu opened inside the panel draws at
+        // popUpMenu level and would otherwise appear behind its own window.
+        panel.level = .floating
         panel.collectionBehavior = [.fullScreenAuxiliary, .stationary, .canJoinAllSpaces]
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
@@ -75,7 +106,7 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         panel.isOpaque = false
         panel.isMovableByWindowBackground = true
         panel.hasShadow = true
-        panel.minSize = NSSize(width: 480, height: 360)
+        panel.minSize = NSSize(width: 420, height: 420)
         panel.animationBehavior = .utilityWindow
 
         content.wantsLayer = true
@@ -85,8 +116,7 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         let glass = NSGlassEffectView()
         glass.contentView = content
         glass.cornerRadius = radius
-        // Clip the glass rim and its legibility backing to the rounded shape,
-        // otherwise a square-cornered plate peeks out at the window corners.
+        // The glass view needs its own radius and mask, or a square plate shows at the corners.
         glass.wantsLayer = true
         glass.layer?.cornerRadius = radius
         glass.layer?.masksToBounds = true
@@ -94,6 +124,10 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         panel.contentView = glass
         panel.delegate = self
         self.panel = panel
+    }
+
+    func setCancelHandler(_ handler: @escaping @MainActor @Sendable () -> Void) {
+        panel?.onCancel = { MainActor.assumeIsolated { handler() } }
     }
 
     func show() {
@@ -107,7 +141,6 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         panel?.orderOut(nil)
     }
 
-    /// Anchors to the screen under the pointer so the panel opens where the user is looking.
     func reposition() {
         guard let panel else { return }
         let mouse = NSEvent.mouseLocation
@@ -116,12 +149,14 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         guard let screen else { return }
         let visible = screen.visibleFrame
         let size = panel.frame.size
-        panel.setFrameOrigin(
-            NSPoint(
-                x: visible.midX - size.width / 2,
-                y: visible.minY + visible.height * 0.62 - size.height / 2
-            )
+        // Clamped: on a short display, or after the user enlarges the panel, the
+        // 0.62 anchor alone can push the title area off the top of the screen.
+        let x = min(max(visible.midX - size.width / 2, visible.minX), visible.maxX - size.width)
+        let y = min(
+            max(visible.minY + visible.height * 0.62 - size.height / 2, visible.minY),
+            visible.maxY - size.height
         )
+        panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
     func showSettings(_ content: NSView) {
@@ -141,7 +176,6 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .visible
         window.isMovableByWindowBackground = true
-        // Without a transparent backing, the sidebar and pane materials lose their translucency.
         window.isOpaque = false
         window.backgroundColor = .clear
         window.isReleasedWhenClosed = false
@@ -154,6 +188,12 @@ private final class PanelHost: NSObject, NSWindowDelegate {
 
     func windowDidResignKey(_ notification: Notification) {
         guard let window = notification.object as? NSWindow, window === panel else { return }
+        guard !isMenuTracking else { return }
+        // Pinned: the user asked the panel to survive losing focus.
+        guard !staysOnTop else { return }
+        // Opening Settings from inside the panel steals key status; hiding there
+        // would also discard the untouched thread the user was about to use.
+        guard settingsWindow?.isKeyWindow != true else { return }
         hide()
         onResign?()
     }

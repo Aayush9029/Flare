@@ -12,9 +12,12 @@ public struct ChatModelOption: Identifiable, Hashable, Sendable {
         self.detail = detail
         self.efforts = efforts
     }
+
+    public var shortName: String {
+        displayName.replacingOccurrences(of: "GPT-", with: "")
+    }
 }
 
-/// Models the Codex backend accepts on a ChatGPT subscription.
 public enum ChatModelCatalog {
     public static let all: [ChatModelOption] = [
         ChatModelOption(
@@ -38,6 +41,8 @@ public enum ChatModelCatalog {
     ]
 
     public static let `default` = all[1]
+
+    public static let titleModel = all[2]
 
     public static func option(id: String) -> ChatModelOption {
         all.first { $0.id == id } ?? `default`

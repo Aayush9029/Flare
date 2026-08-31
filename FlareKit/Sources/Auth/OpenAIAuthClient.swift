@@ -3,11 +3,8 @@ import Dependencies
 import DependenciesMacros
 import Foundation
 
-/// Constants lifted from the Codex CLI's own sign-in flow.
-///
-/// The client id and the redirect URI belong to OpenAI's public Codex app
-/// registration. Neither is configurable: the authorization server rejects any
-/// redirect URI other than the one below.
+/// Client id and the localhost:1455 redirect URI are fixed by OpenAI's public Codex app
+/// registration; the authorization server rejects any other redirect URI.
 public enum OpenAIOAuth {
     public static let issuer = URL(string: "https://auth.openai.com")!
     public static let clientId = "app_EMoamEEZ73f0CkXaXp7hrann"
@@ -27,6 +24,7 @@ public enum AuthError: LocalizedError, Equatable {
     case denied(String)
     case tokenExchangeFailed(String)
     case notSignedIn
+    case noEnvironmentKey
 
     public var errorDescription: String? {
         switch self {
@@ -39,27 +37,33 @@ public enum AuthError: LocalizedError, Equatable {
         case .tokenExchangeFailed(let reason):
             "Could not complete sign-in: \(reason)"
         case .notSignedIn:
-            "Sign in with your ChatGPT account to start a chat."
+            "Sign in with ChatGPT, or add an OpenAI API key, to start a chat."
+        case .noEnvironmentKey:
+            "OPENAI_API_KEY is not set in your login shell."
         }
     }
 }
 
 @DependencyClient
 public struct OpenAIAuthClient: Sendable {
-    /// Opens the browser, serves the loopback callback, and stores the tokens.
     public var signIn: @Sendable () async throws -> AuthTokens
-    /// Returns stored tokens, refreshing them first when the access token is stale.
     public var validTokens: @Sendable () async throws -> AuthTokens
     public var currentAccount: @Sendable () -> Account?
     public var isSignedIn: @Sendable () -> Bool = { false }
     public var signOut: @Sendable () async throws -> Void
-    /// Adopts the Codex CLI's own credentials from `~/.codex/auth.json`.
+    /// An API key wins when present: it is the credential the user set explicitly.
+    public var credentials: @Sendable (CredentialPreference) async throws -> Credentials
+    public var currentAPIKey: @Sendable () -> String?
+    public var setAPIKey: @Sendable (String) throws -> Void
+    public var clearAPIKey: @Sendable () throws -> Void
+    public var importAPIKeyFromEnvironment: @Sendable () throws -> String
     public var importFromCodexCLI: @Sendable () async throws -> AuthTokens
 }
 
 extension OpenAIAuthClient: DependencyKey {
     public static var liveValue: Self {
         @Dependency(\.tokenStore) var store
+        @Dependency(\.apiKeyStore) var keys
 
         @Sendable
         func exchange(_ form: [String: String]) async throws -> AuthTokens {
@@ -110,7 +114,6 @@ extension OpenAIAuthClient: DependencyKey {
                 ]
 
                 async let callback = server.awaitCallback(path: OpenAIOAuth.callbackPath)
-                // Give the listener a moment to bind before the browser races to it.
                 try await Task.sleep(for: .milliseconds(150))
                 NSWorkspace.shared.open(components.url!)
 
@@ -139,16 +142,17 @@ extension OpenAIAuthClient: DependencyKey {
             validTokens: {
                 guard let tokens = store.load() else { throw AuthError.notSignedIn }
                 guard tokens.needsRefresh else { return tokens }
+                // No `scope`: omitting it keeps the originally granted scopes.
+                // Sending a narrower set silently downgrades the access token.
                 return try await exchange([
                     "grant_type": "refresh_token",
                     "refresh_token": tokens.refreshToken,
                     "client_id": OpenAIOAuth.clientId,
-                    "scope": "openid profile email",
                 ])
             },
 
             currentAccount: { store.load()?.account },
-            isSignedIn: { store.load() != nil },
+            isSignedIn: { store.load() != nil || keys.load() != nil },
 
             signOut: {
                 if let tokens = store.load() {
@@ -159,6 +163,29 @@ extension OpenAIAuthClient: DependencyKey {
                     _ = try? await URLSession.shared.data(for: request)
                 }
                 try store.clear()
+            },
+
+            credentials: { preference in
+                if preference != .chatgpt, let key = keys.load() { return .apiKey(key) }
+                if preference == .apiKey { throw AuthError.notSignedIn }
+                guard let tokens = store.load() else { throw AuthError.notSignedIn }
+                guard tokens.needsRefresh else { return .chatgpt(tokens) }
+                return .chatgpt(
+                    try await exchange([
+                        "grant_type": "refresh_token",
+                        "refresh_token": tokens.refreshToken,
+                        "client_id": OpenAIOAuth.clientId,
+                    ])
+                )
+            },
+
+            currentAPIKey: { keys.load() },
+            setAPIKey: { try keys.save($0) },
+            clearAPIKey: { try keys.clear() },
+            importAPIKeyFromEnvironment: {
+                let key = try keys.readFromLoginShell()
+                try keys.save(key)
+                return key
             },
 
             importFromCodexCLI: {

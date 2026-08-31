@@ -8,18 +8,20 @@ struct ModelPane: View {
     var body: some View {
         SettingsForm {
             Section {
-                VStack(spacing: 8) {
+                HStack(spacing: 8) {
                     ForEach(ChatModelCatalog.all) { option in
                         SelectableCard(isSelected: option.id == preferences.selectedModel) {
                             preferences.$selectedModel.withLock { $0 = option.id }
                         } content: {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(option.displayName)
+                                Text(option.shortName)
                                     .font(.callout.weight(.medium))
                                 Text(option.detail)
                                     .font(.caption)
                                     .opacity(option.id == preferences.selectedModel ? 0.75 : 1)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                         }

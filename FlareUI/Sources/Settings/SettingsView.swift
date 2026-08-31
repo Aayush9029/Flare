@@ -10,7 +10,7 @@ public struct SettingsView: View {
     }
 
     public var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: .constant(.all)) {
             List(SettingsTab.allCases, selection: $tab) { tab in
                 Label {
                     Text(tab.title)
@@ -21,7 +21,8 @@ public struct SettingsView: View {
                 .tag(tab)
             }
             .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 170, ideal: 180, max: 210)
+            .navigationSplitViewColumnWidth(min: 180, ideal: 180, max: 180)
+            .toolbar(removing: .sidebarToggle)
         } detail: {
             pane
                 .navigationTitle("")

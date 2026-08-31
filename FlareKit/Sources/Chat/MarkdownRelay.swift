@@ -1,11 +1,7 @@
 import Foundation
 import os
 
-/// Broadcasts growing Markdown snapshots to any number of readers.
-///
-/// `StreamedMarkdownView` wants an `AsyncStream` of complete-so-far snapshots,
-/// but SwiftUI may build the view more than once per assistant turn. Each
-/// `stream()` therefore replays the current text before following new deltas.
+/// Emits growing snapshots, not deltas; a late subscriber replays the current text first.
 public final class MarkdownRelay: Identifiable, @unchecked Sendable {
     public let id = UUID()
 
@@ -49,11 +45,13 @@ public final class MarkdownRelay: Identifiable, @unchecked Sendable {
     public func stream() -> AsyncStream<String> {
         AsyncStream { continuation in
             let key = UUID()
-            let (snapshot, isFinished) = state.withLock { state -> (String, Bool) in
+            // Register and replay atomically, or a concurrent append can broadcast
+            // a longer snapshot before this one and the text appears to go backwards.
+            let isFinished = state.withLock { state -> Bool in
                 if !state.isFinished { state.continuations[key] = continuation }
-                return (state.text, state.isFinished)
+                continuation.yield(state.text)
+                return state.isFinished
             }
-            continuation.yield(snapshot)
             if isFinished {
                 continuation.finish()
                 return

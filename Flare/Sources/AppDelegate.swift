@@ -24,8 +24,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.showSettings(model: model)
             })
         )
-        content.setFrameSize(NSSize(width: 720, height: 560))
+        content.setFrameSize(NSSize(width: 470, height: 660))
         windowClient.createPanel(content)
+        windowClient.setCancelHandler { [weak model] in
+            guard let model else { return }
+            if model.palette.isPresented {
+                model.closePalette()
+            } else {
+                model.hide()
+            }
+        }
         windowClient.setResignHandler { [weak model] in
             guard let model, let id = model.selectedThreadID, !model.isStreaming else { return }
             model.discardEmptyThread(id)
@@ -34,23 +42,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         KeyboardShortcuts.onKeyDown(for: .toggleFlare) { [weak model] in
             Task { @MainActor in model?.toggle() }
         }
-        KeyboardShortcuts.onKeyDown(for: .newThread) { [weak model] in
-            Task { @MainActor in
-                model?.newThread()
-                model?.open()
-            }
-        }
 
         setUpStatusItem(model: model)
         applyDockPreference(model: model)
+        applyStaysOnTop(model: model)
     }
 
     private func setUpStatusItem(model: FlareModel) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(
-            systemSymbolName: "bolt.horizontal.fill",
-            accessibilityDescription: "Flare"
-        )
+        item.button?.image = FlareBolt.menuBarImage()
+        item.button?.image?.accessibilityDescription = "Flare"
 
         let menu = NSMenu()
         menu.addItem(
@@ -76,7 +77,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = item
     }
 
-    /// "Show in Dock" flips the activation policy live.
     private func applyDockPreference(model: FlareModel) {
         withObservationTracking {
             NSApp.setActivationPolicy(model.preferences.showsDockIcon ? .regular : .accessory)
@@ -84,6 +84,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 guard let self, let model = self.model else { return }
                 self.applyDockPreference(model: model)
+            }
+        }
+    }
+
+    private func applyStaysOnTop(model: FlareModel) {
+        withObservationTracking {
+            windowClient.setStaysOnTop(model.preferences.staysOnTop)
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self, let model = self.model else { return }
+                self.applyStaysOnTop(model: model)
             }
         }
     }

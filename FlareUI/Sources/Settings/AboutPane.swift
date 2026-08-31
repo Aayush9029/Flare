@@ -11,11 +11,7 @@ struct AboutPane: View {
         SettingsForm {
             Section {
                 HStack(spacing: 14) {
-                    Image(systemName: "bolt.horizontal.fill")
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 52, height: 52)
-                        .background(Color.orange.gradient, in: .rect(cornerRadius: 12, style: .continuous))
+                    FlareAppIcon(size: 52)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Flare")
@@ -32,7 +28,7 @@ struct AboutPane: View {
 
             Section("Storage") {
                 LabeledContent("Chats", value: "Stored on this Mac only")
-                LabeledContent("Credentials", value: "Keychain")
+                LabeledContent("Credentials", value: "Application Support (0600 file)")
             }
         }
     }

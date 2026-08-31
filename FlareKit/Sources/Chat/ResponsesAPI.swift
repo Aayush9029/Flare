@@ -1,6 +1,5 @@
 import Foundation
 
-/// Request/response shapes for the Responses API as the Codex backend serves it.
 public enum ResponsesAPI {
     public struct Request: Encodable {
         public var model: String
@@ -10,13 +9,42 @@ public enum ResponsesAPI {
         public var store = false
         public var reasoning: Reasoning?
         public var include: [String] = []
+        public var tools: [Tool] = []
 
-        public init(model: String, instructions: String, input: [Item], reasoning: Reasoning?) {
+        public init(
+            model: String,
+            instructions: String,
+            input: [Item],
+            reasoning: Reasoning?,
+            tools: [Tool] = []
+        ) {
             self.model = model
             self.instructions = instructions
             self.input = input
             self.reasoning = reasoning
+            self.tools = tools
         }
+    }
+
+    /// The Codex backend accepts `web_search` and `image_generation`; it rejects
+    /// `code_interpreter`, `file_search` and `computer_use_preview`.
+    public struct Tool: Encodable, Equatable, Sendable {
+        public var type: String
+        public var size: String?
+        public var quality: String?
+
+        public init(type: String, size: String? = nil, quality: String? = nil) {
+            self.type = type
+            self.size = size
+            self.quality = quality
+        }
+
+        public static let webSearch = Tool(type: "web_search")
+        public static let imageGeneration = Tool(
+            type: "image_generation",
+            size: "1024x1024",
+            quality: "low"
+        )
     }
 
     public struct Reasoning: Encodable {
@@ -42,16 +70,30 @@ public enum ResponsesAPI {
     }
 }
 
-/// The subset of `response.*` stream events Flare renders.
 public enum StreamEvent: Sendable, Equatable {
     case outputTextDelta(String)
     case reasoningSummaryDelta(String)
+    case webSearchStarted
+    case webSearchFinished
+    case imageGenerationStarted
+    case image(Data)
+    case citation(Citation)
     case completed
     case failed(String)
 }
 
+public struct Citation: Sendable, Equatable, Hashable, Identifiable {
+    public var title: String
+    public var url: String
+
+    public var id: String { url }
+
+    public var host: String {
+        URL(string: url)?.host()?.replacingOccurrences(of: "www.", with: "") ?? url
+    }
+}
+
 extension StreamEvent {
-    /// Decodes one SSE `data:` payload. Unknown event types are ignored.
     static func decode(_ data: Data) -> StreamEvent? {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = object["type"] as? String
@@ -62,6 +104,29 @@ extension StreamEvent {
             return (object["delta"] as? String).map(StreamEvent.outputTextDelta)
         case "response.reasoning_summary_text.delta":
             return (object["delta"] as? String).map(StreamEvent.reasoningSummaryDelta)
+        case "response.web_search_call.in_progress", "response.web_search_call.searching":
+            return .webSearchStarted
+        case "response.web_search_call.completed":
+            return .webSearchFinished
+        case "response.image_generation_call.in_progress",
+             "response.image_generation_call.generating":
+            return .imageGenerationStarted
+        case "response.output_item.done":
+            guard let item = object["item"] as? [String: Any],
+                  item["type"] as? String == "image_generation_call",
+                  let base64 = item["result"] as? String,
+                  let data = Data(base64Encoded: base64)
+            else { return nil }
+            return .image(data)
+        case "response.output_text.annotation.added":
+            // Shape varies by backend, so read it defensively rather than decoding.
+            let annotation = object["annotation"] as? [String: Any] ?? object
+            guard annotation["type"] as? String == "url_citation",
+                  let url = annotation["url"] as? String
+            else { return nil }
+            return .citation(
+                Citation(title: annotation["title"] as? String ?? url, url: url)
+            )
         case "response.completed":
             return .completed
         case "response.failed", "error":

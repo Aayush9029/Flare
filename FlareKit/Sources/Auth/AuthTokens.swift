@@ -21,7 +21,6 @@ public struct AuthTokens: Codable, Equatable, Sendable {
         self.lastRefresh = lastRefresh
     }
 
-    /// Codex refreshes on a 28-day cadence; the access token itself expires far sooner.
     public var needsRefresh: Bool {
         guard let exp = JWT.claims(accessToken)?["exp"] as? Double else { return true }
         return Date().timeIntervalSince1970 > exp - 300

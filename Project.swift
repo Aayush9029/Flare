@@ -15,6 +15,7 @@ let project = Project(
             "MARKETING_VERSION": "0.1.0",
             "CURRENT_PROJECT_VERSION": "1",
             "CODE_SIGN_STYLE": "Automatic",
+            "DEVELOPMENT_TEAM": "6Q29HJZ4AG",
         ]
     ),
     targets: [
@@ -22,9 +23,10 @@ let project = Project(
             name: "Flare",
             destinations: destinations,
             product: .app,
-            bundleId: "art.aayush.Flare",
+            bundleId: "ca.optimalapps.flare",
             deploymentTargets: deploymentTargets,
             infoPlist: .file(path: "Flare/Info.plist"),
+            resources: ["Flare/Resources/**"],
             buildableFolders: ["Flare/Sources"],
             entitlements: .file(path: "Flare/Flare.entitlements"),
             dependencies: [
@@ -44,7 +46,7 @@ let project = Project(
             name: "FlareKit",
             destinations: destinations,
             product: .staticFramework,
-            bundleId: "art.aayush.FlareKit",
+            bundleId: "ca.optimalapps.flare.kit",
             deploymentTargets: deploymentTargets,
             infoPlist: .default,
             buildableFolders: ["FlareKit/Sources"],
@@ -59,13 +61,14 @@ let project = Project(
                 .external(name: "IssueReporting"),
                 .external(name: "SQLiteData"),
                 .external(name: "KeyboardShortcuts"),
+                .external(name: "Markdown"),
             ]
         ),
         .target(
             name: "FlareUI",
             destinations: destinations,
             product: .staticFramework,
-            bundleId: "art.aayush.FlareUI",
+            bundleId: "ca.optimalapps.flare.ui",
             deploymentTargets: deploymentTargets,
             infoPlist: .default,
             buildableFolders: ["FlareUI/Sources"],
@@ -75,13 +78,14 @@ let project = Project(
                 .external(name: "Sharing"),
                 .external(name: "KeyboardShortcuts"),
                 .external(name: "SwiftStreamingMarkdown"),
+                .external(name: "Markdown"),
             ]
         ),
         .target(
             name: "FlareKitTests",
             destinations: destinations,
             product: .unitTests,
-            bundleId: "art.aayush.FlareKitTests",
+            bundleId: "ca.optimalapps.flare.kittests",
             deploymentTargets: deploymentTargets,
             infoPlist: .default,
             buildableFolders: ["FlareKitTests"],
@@ -89,6 +93,8 @@ let project = Project(
                 .target(name: "FlareKit"),
                 .external(name: "DependenciesTestSupport"),
                 .external(name: "CustomDump"),
+                .external(name: "SwiftStreamingMarkdown"),
+                .external(name: "Markdown"),
             ]
         ),
     ]

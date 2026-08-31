@@ -14,6 +14,12 @@ public extension SharedReaderKey where Self == AppStorageKey<String>.Default {
     }
 }
 
+public extension SharedReaderKey where Self == AppStorageKey<String>.Default {
+    static var credentialPreference: Self {
+        Self[.appStorage("credentialPreference"), default: CredentialPreference.automatic.rawValue]
+    }
+}
+
 public extension SharedReaderKey where Self == AppStorageKey<Bool>.Default {
     static var showsDockIcon: Self {
         Self[.appStorage("showsDockIcon"), default: false]
@@ -21,6 +27,18 @@ public extension SharedReaderKey where Self == AppStorageKey<Bool>.Default {
 
     static var showsReasoning: Self {
         Self[.appStorage("showsReasoning"), default: true]
+    }
+
+    static var webSearchEnabled: Self {
+        Self[.appStorage("webSearchEnabled"), default: true]
+    }
+
+    static var imagesEnabled: Self {
+        Self[.appStorage("imagesEnabled"), default: true]
+    }
+
+    static var staysOnTop: Self {
+        Self[.appStorage("staysOnTop"), default: false]
     }
 
     static var newThreadOnOpen: Self {
