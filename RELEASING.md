@@ -1,47 +1,57 @@
-# Releasing
+# Releasing Flare
 
-Every push to `main` runs `.github/workflows/release.yml`: test, archive, sign, notarize,
-build a DMG, notarize the DMG, and publish it as a release in `Aayush9029/releases`.
+Every push to `main` runs `.github/workflows/release.yml`. The workflow builds,
+tests, signs, notarizes, makes a DMG, and publishes a release to
+`Aayush9029/releases`.
 
-The version comes from `MARKETING_VERSION` in `Project.swift`; the build number is the
-workflow run number, so it always increases.
+## Secrets
 
-## Required secrets
-
-The workflow cannot run until these exist on `Aayush9029/Flare`
-(Settings → Secrets and variables → Actions):
-
-| Secret | What it is | How to get it |
+| Secret | Status | Value |
 |---|---|---|
-| `CERTIFICATE_P12` | Base64 of a **Developer ID Application** `.p12` for team `6Q29HJZ4AG` | Export from Keychain Access, then `base64 -i cert.p12 \| pbcopy` |
-| `CERTIFICATE_PASSWORD` | The password set when exporting that `.p12` | You choose it during export |
-| `ASC_API_KEY_P8` | Base64 of the App Store Connect API key `.p8` | App Store Connect → Users and Access → Integrations → Keys |
-| `ASC_API_KEY_ID` | The key's 10-character ID | Shown beside the key |
-| `ASC_API_ISSUER_ID` | The issuer UUID | Shown above the key list |
-| `RELEASES_TOKEN` | A PAT with `contents: write` on `Aayush9029/releases` | GitHub → Settings → Developer settings → Fine-grained tokens |
+| `ASC_API_KEY_P8` | set | base64 of the Optimal Life App Store Connect key |
+| `ASC_API_KEY_ID` | set | `27TQ78XRSX` |
+| `ASC_API_ISSUER_ID` | set | `dbe9e3f9-9c90-4472-b041-5f360ee3dc7c` |
+| `RELEASES_TOKEN` | set | token that can create releases in `Aayush9029/releases` |
+| `CERTIFICATE_P12` | missing | base64 of the Developer ID Application identity |
+| `CERTIFICATE_PASSWORD` | missing | password for that `.p12` |
 
-## Blocker: the signing certificate does not exist yet
+## The remaining step
 
-Team `6Q29HJZ4AG` (Optimal Life Technologies, Inc) currently has only an **iPhone
-Distribution** certificate. macOS distribution outside the App Store needs a
-**Developer ID Application** certificate, which has to be created once in the
-developer portal:
+Team `6Q29HJZ4AG` holds only an iPhone Distribution certificate, which cannot
+sign a Mac app for distribution outside the App Store. The App Store Connect
+API refuses to create a Developer ID certificate:
 
-1. developer.apple.com → Certificates, Identifiers & Profiles → Certificates → **+**
-2. Choose **Developer ID Application**, with `6Q29HJZ4AG` as the team.
-3. Upload a CSR from Keychain Access (Certificate Assistant → Request a Certificate
-   from a Certificate Authority → saved to disk).
-4. Download, double-click to install, then export as `.p12` for `CERTIFICATE_P12`.
+```
+This request is forbidden for security reasons:
+This operation can only be performed by the Account Holder.
+```
 
-Only an Account Holder can create this, so it cannot be scripted from here.
+Only the Account Holder can create one, in the web portal. A certificate signing
+request is already prepared, so no keychain export is needed.
 
-Until that exists the workflow fails at "Import signing certificate". Local debug
-builds are unaffected: they sign ad-hoc and run fine.
+1. Open https://developer.apple.com/account/resources/certificates/add as the
+   Optimal Life Account Holder.
+2. Choose **Developer ID Application**, then **G2 Sub-CA**.
+3. Upload `~/.flare-signing/devid.csr`.
+4. Download the certificate.
+5. Run:
 
-## Verifying a build locally
+   ```bash
+   ~/.flare-signing/finish-signing.sh ~/Downloads/developerID_application.cer
+   ```
+
+The script pairs the certificate with the private key that made the request,
+builds a `.p12`, sets both secrets, and imports the identity into the login
+keychain for local signing.
+
+Then start a release:
 
 ```bash
-tuist install && tuist generate --no-open
-xcodebuild build -workspace Flare.xcworkspace -scheme Flare -configuration Release \
-  -destination 'platform=macOS'
+gh workflow run Release --repo Aayush9029/Flare
 ```
+
+## Versioning
+
+`MARKETING_VERSION` in `Project.swift` sets the release version. The build
+number is the workflow run number, so it always climbs. Tags take the form
+`v<marketing>+<run>`.
