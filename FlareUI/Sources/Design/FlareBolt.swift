@@ -71,6 +71,16 @@ public struct FlareBolt: Shape {
         endPoint: .bottomTrailing
     )
 
+    /// Mirrors the `fill` in `AppIcon.icon`, so the About pane matches the Dock.
+    public static let iconBackground = LinearGradient(
+        colors: [
+            Color(red: 0.18, green: 0.13, blue: 0.30),
+            Color(red: 0.05, green: 0.03, blue: 0.09),
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
     /// A monochrome template image, which is what the menu bar expects so the
     /// glyph inverts correctly in light and dark menu bars.
     @MainActor
@@ -96,15 +106,22 @@ public struct FlareAppIcon: View {
     public var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.23, style: .continuous)
-                .fill(.white)
+                .fill(FlareBolt.iconBackground)
             FlareBolt()
-                .fill(FlareBolt.gradient)
-                .padding(size * 0.17)
+                .fill(
+                    LinearGradient(
+                        colors: [.white, Color(white: 0.82)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .shadow(color: .black.opacity(0.35), radius: size * 0.03, y: size * 0.015)
+                .padding(size * 0.19)
         }
         .frame(width: size, height: size)
         .overlay {
             RoundedRectangle(cornerRadius: size * 0.23, style: .continuous)
-                .strokeBorder(.primary.opacity(0.1), lineWidth: 1)
+                .strokeBorder(.white.opacity(0.12), lineWidth: 1)
         }
     }
 }
