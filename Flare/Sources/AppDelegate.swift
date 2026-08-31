@@ -43,6 +43,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in model?.toggle() }
         }
 
+        // Without this the licence is only resolved when the License pane appears,
+        // so a licensed user is locked out until they open Settings.
+        Task { await model.license.start() }
+
         setUpStatusItem(model: model)
         applyDockPreference(model: model)
         applyStaysOnTop(model: model)

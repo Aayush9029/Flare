@@ -32,6 +32,14 @@ public final class LicenseModel {
     public init() {}
 
     public func start() async {
+        #if DEBUG
+        // Debug-only escape hatch for capturing screenshots and demo footage.
+        // Release builds have no way to reach this.
+        if ProcessInfo.processInfo.environment["FLARE_SKIP_LICENSE"] != nil {
+            status = .licensed(displayKey: "DEBUG")
+            return
+        }
+        #endif
         guard let key = store.key() else {
             status = .unlicensed
             return
