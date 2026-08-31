@@ -1,0 +1,163 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  SCHEME: Flare
+  APP_NAME: Flare
+  TEAM_ID: 6Q29HJZ4AG
+  RELEASES_REPO: Aayush9029/releases
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.app
+
+      - name: Install Tuist
+        run: |
+          curl -Ls https://install.tuist.io | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve version
+        id: version
+        run: |
+          MARKETING=$(grep -m1 '"MARKETING_VERSION"' Project.swift | sed -E 's/.*: "([^"]+)".*/\1/')
+          echo "marketing=$MARKETING" >> "$GITHUB_OUTPUT"
+          echo "build=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "tag=v$MARKETING+${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate project
+        run: |
+          tuist install
+          tuist generate --no-open
+
+      - name: Test
+        run: |
+          xcodebuild test \
+            -workspace Flare.xcworkspace \
+            -scheme FlareKit \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO
+
+      # macOS 26 blocks CLI access to Developer ID keys in the login keychain,
+      # so the build always runs against a throwaway keychain.
+      - name: Import signing certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" \
+            $(security list-keychains -d user | tr -d '"' | tr '\n' ' ')
+
+      - name: Archive and export
+        run: |
+          xcodebuild archive \
+            -workspace Flare.xcworkspace \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
+            -destination 'generic/platform=macOS' \
+            MARKETING_VERSION=${{ steps.version.outputs.marketing }} \
+            CURRENT_PROJECT_VERSION=${{ steps.version.outputs.build }} \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --keychain $KEYCHAIN_PATH"
+
+          cat > "$RUNNER_TEMP/export.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>developer-id</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+          </dict></plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+
+      - name: Notarize app
+        env:
+          API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: |
+          mkdir -p ~/private_keys
+          echo "$API_KEY_P8" | base64 --decode > ~/private_keys/AuthKey_${API_KEY_ID}.p8
+          APP="$RUNNER_TEMP/export/$APP_NAME.app"
+
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/app.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/app.zip" \
+            --key ~/private_keys/AuthKey_${API_KEY_ID}.p8 \
+            --key-id "$API_KEY_ID" --issuer "$API_ISSUER_ID" --wait
+          xcrun stapler staple "$APP"
+
+      - name: Create and notarize DMG
+        env:
+          API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: |
+          brew install create-dmg
+          APP="$RUNNER_TEMP/export/$APP_NAME.app"
+          DMG="$RUNNER_TEMP/$APP_NAME-${{ steps.version.outputs.marketing }}.dmg"
+
+          create-dmg \
+            --volname "$APP_NAME" \
+            --window-size 560 350 \
+            --icon-size 110 \
+            --icon "$APP_NAME.app" 150 165 \
+            --app-drop-link 410 165 \
+            --no-internet-enable \
+            "$DMG" "$APP"
+
+          codesign --force --timestamp --keychain "$KEYCHAIN_PATH" \
+            --sign "Developer ID Application" "$DMG"
+          xcrun notarytool submit "$DMG" \
+            --key ~/private_keys/AuthKey_${API_KEY_ID}.p8 \
+            --key-id "$API_KEY_ID" --issuer "$API_ISSUER_ID" --wait
+          xcrun stapler staple "$DMG"
+
+          echo "DMG_PATH=$DMG" >> "$GITHUB_ENV"
+
+      - name: Verify Gatekeeper
+        run: |
+          spctl --assess --type open --context context:primary-signature -vv "$DMG_PATH"
+          codesign --verify --deep --strict --verbose=2 "$RUNNER_TEMP/export/$APP_NAME.app"
+
+      - name: Publish to the releases repo
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --repo "$RELEASES_REPO" \
+            --title "Flare ${{ steps.version.outputs.marketing }} (${{ steps.version.outputs.build }})" \
+            --notes "Automated build from \`${{ github.sha }}\`." \
+            "$DMG_PATH"
