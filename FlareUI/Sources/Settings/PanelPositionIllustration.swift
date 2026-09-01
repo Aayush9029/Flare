@@ -1,15 +1,17 @@
 import FlareKit
 import SwiftUI
 
-/// A desktop in miniature with the panel where that choice puts it.
+/// A desktop in miniature with the panel where, and as tall as, a choice puts it.
 struct PanelPositionIllustration: View {
-    let position: PanelPosition
+    var position: PanelPosition = .bottomRight
+    var size: PanelSize = .compact
 
     var body: some View {
         GeometryReader { proxy in
-            let size = proxy.size
-            let panel = CGSize(width: size.width * 0.2, height: size.height * 0.46)
-            let inset: CGFloat = size.width * 0.05
+            let screen = proxy.size
+            let menuBar = screen.height * 0.07
+            let inset = screen.width * 0.05
+            let panel = CGSize(width: screen.width * 0.2, height: panelHeight(screen: screen, menuBar: menuBar, inset: inset))
             ZStack(alignment: .topLeading) {
                 LinearGradient(
                     colors: [Color(red: 0.20, green: 0.16, blue: 0.36), Color(red: 0.07, green: 0.05, blue: 0.14)],
@@ -18,30 +20,40 @@ struct PanelPositionIllustration: View {
                 )
                 Rectangle()
                     .fill(.white.opacity(0.10))
-                    .frame(height: size.height * 0.07)
+                    .frame(height: menuBar)
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(.white.opacity(0.85))
                     .overlay(alignment: .bottom) {
                         Capsule()
                             .fill(.black.opacity(0.12))
-                            .frame(height: panel.height * 0.16)
+                            .frame(height: 6)
                             .padding(panel.width * 0.1)
                     }
                     .frame(width: panel.width, height: panel.height)
                     .shadow(color: .black.opacity(0.35), radius: 4, y: 2)
-                    .offset(origin(in: size, panel: panel, inset: inset))
+                    .offset(origin(screen: screen, menuBar: menuBar, panel: panel, inset: inset))
             }
         }
     }
 
-    private func origin(in size: CGSize, panel: CGSize, inset: CGFloat) -> CGSize {
-        switch position {
+    private func panelHeight(screen: CGSize, menuBar: CGFloat, inset: CGFloat) -> CGFloat {
+        let usable = screen.height - menuBar - inset * 2
+        return switch size {
+        case .compact: usable * 0.5
+        case .half: usable * 0.66
+        case .full: usable
+        }
+    }
+
+    private func origin(screen: CGSize, menuBar: CGFloat, panel: CGSize, inset: CGFloat) -> CGSize {
+        let bottom = screen.height - panel.height - inset
+        return switch position {
         case .bottomLeft:
-            CGSize(width: inset, height: size.height - panel.height - inset)
+            CGSize(width: inset, height: bottom)
         case .bottomRight:
-            CGSize(width: size.width - panel.width - inset, height: size.height - panel.height - inset)
+            CGSize(width: screen.width - panel.width - inset, height: bottom)
         case .center:
-            CGSize(width: (size.width - panel.width) / 2, height: (size.height - panel.height) / 2)
+            CGSize(width: (screen.width - panel.width) / 2, height: menuBar + (screen.height - menuBar - panel.height) / 2)
         }
     }
 }

@@ -146,7 +146,13 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   at creation: naming at creation saves the empty starting frame, and the first show restores that
   corner instead of the pointer's screen. "Restore last position" in General turns the restore off.
   Without a frame to restore, `PanelPosition` (bottom left, bottom right, center) chosen in the
-  Position cards decides where it opens, 16 points in from the edges.
+  Position cards decides where it opens, 16 points in from the edges, and `PanelSize` (compact,
+  half, full) how tall, with 12 points kept clear under the menu bar. A size change resizes the
+  panel at once; a restored frame keeps the height it saved.
+- Settings copy stays short: tool toggles are chips ("Web", "Image"), and the Account pane is two
+  cards, ChatGPT and API Key. Choosing ChatGPT adopts a Codex CLI session when one exists;
+  choosing API Key reveals the field. The old Automatic value reads as whichever is set up.
+- User messages have no bubble. The muted colour marks the turn, and both sides share one margin.
 - Every message offers **Copy** (Markdown stripped by `MarkdownPlainText`) and **Copy as
   Markdown** (the stored source, verbatim).
 - `MarkdownRelay` feeds `StreamedMarkdownView` growing snapshots, not deltas, and replays the

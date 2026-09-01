@@ -22,6 +22,10 @@ public extension SharedReaderKey where Self == AppStorageKey<String>.Default {
     static var panelPosition: Self {
         Self[.appStorage("panelPosition"), default: PanelPosition.bottomRight.rawValue]
     }
+
+    static var panelSize: Self {
+        Self[.appStorage("panelSize"), default: PanelSize.compact.rawValue]
+    }
 }
 
 public extension SharedReaderKey where Self == AppStorageKey<Bool>.Default {

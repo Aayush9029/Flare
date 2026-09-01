@@ -24,10 +24,10 @@ struct MessageRow: View {
             RoleLabel(role: message.role, source: model.responseSource, isStreaming: isStreaming)
 
             if message.role == .user {
+                // No bubble: the muted colour marks the turn, and both sides share one margin.
                 Text(message.content)
+                    .foregroundStyle(.secondary)
                     .textSelection(.enabled)
-                    .padding(10)
-                    .background(.primary.opacity(0.07), in: .rect(cornerRadius: 12, style: .continuous))
             } else {
                 if model.preferences.showsReasoning, hasReasoning {
                     ReasoningView(message: message, model: model)

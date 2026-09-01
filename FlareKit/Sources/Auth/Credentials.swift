@@ -12,16 +12,16 @@ public enum CredentialPreference: String, CaseIterable, Sendable {
     public var title: String {
         switch self {
         case .automatic: "Automatic"
-        case .chatgpt: "ChatGPT account"
-        case .apiKey: "OpenAI API key"
+        case .chatgpt: "ChatGPT"
+        case .apiKey: "API Key"
         }
     }
 
     public var detail: String {
         switch self {
-        case .automatic: "Use the API key when one is set, otherwise the ChatGPT account."
-        case .chatgpt: "Always bill the Codex backend against your ChatGPT subscription."
-        case .apiKey: "Always bill api.openai.com against your API key."
+        case .automatic: "Uses the API key when one is set, otherwise ChatGPT."
+        case .chatgpt: "Answers through your ChatGPT subscription. No extra billing."
+        case .apiKey: "Answers through api.openai.com and bills per token."
         }
     }
 }

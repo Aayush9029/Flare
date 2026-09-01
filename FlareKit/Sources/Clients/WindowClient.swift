@@ -13,6 +13,7 @@ public struct WindowClient: Sendable {
     public var setStaysOnTop: @MainActor @Sendable (Bool) -> Void
     public var setRemembersPosition: @MainActor @Sendable (Bool) -> Void
     public var setPosition: @MainActor @Sendable (PanelPosition) -> Void
+    public var setSize: @MainActor @Sendable (PanelSize) -> Void
     public var showSettings: @MainActor @Sendable (_ content: NSView) -> Void
 }
 
@@ -30,6 +31,7 @@ extension WindowClient: DependencyKey {
             setStaysOnTop: { PanelHost.shared.staysOnTop = $0 },
             setRemembersPosition: { PanelHost.shared.remembersPosition = $0 },
             setPosition: { PanelHost.shared.position = $0 },
+            setSize: { PanelHost.shared.setSize($0) },
             showSettings: { content in PanelHost.shared.showSettings(content) }
         )
     }
@@ -48,6 +50,7 @@ extension WindowClient: TestDependencyKey {
         setStaysOnTop: { _ in },
         setRemembersPosition: { _ in },
         setPosition: { _ in },
+        setSize: { _ in },
         showSettings: { _ in }
     )
 }
@@ -95,6 +98,8 @@ private final class PanelHost: NSObject, NSWindowDelegate {
     var staysOnTop = false
     var remembersPosition = true
     var position = PanelPosition.bottomRight
+    private var size = PanelSize.compact
+    private var hasAppliedSize = false
 
     private let panelSize = NSSize(width: 470, height: 660)
     private let radius: CGFloat = 20
@@ -154,31 +159,46 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         panel.invalidateShadow()
     }
 
+    /// A new size takes effect at once; a restored frame keeps the height it saved.
+    func setSize(_ size: PanelSize) {
+        let changed = self.size != size
+        self.size = size
+        guard changed, hasAppliedSize else {
+            hasAppliedSize = true
+            return
+        }
+        reposition()
+    }
+
+    private func screenUnderPointer() -> NSScreen? {
+        let mouse = NSEvent.mouseLocation
+        return NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+    }
+
     func hide() {
         panel?.orderOut(nil)
     }
 
     func reposition() {
-        guard let panel else { return }
-        let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
-            ?? NSScreen.main
-        guard let screen else { return }
+        guard let panel, let screen = (panel.isVisible ? panel.screen : nil) ?? screenUnderPointer() else { return }
         let visible = screen.visibleFrame
-        let size = panel.frame.size
+        let frame = NSSize(
+            width: panel.frame.width,
+            height: self.size.height(in: visible.height, minimum: panel.minSize.height)
+        )
         // Clamped so a short display or an enlarged panel stays on screen.
         let gap: CGFloat = 16
         let origin: NSPoint = switch position {
         case .bottomLeft:
             NSPoint(x: visible.minX + gap, y: visible.minY + gap)
         case .bottomRight:
-            NSPoint(x: visible.maxX - size.width - gap, y: visible.minY + gap)
+            NSPoint(x: visible.maxX - frame.width - gap, y: visible.minY + gap)
         case .center:
-            NSPoint(x: visible.midX - size.width / 2, y: visible.minY + visible.height * 0.62 - size.height / 2)
+            NSPoint(x: visible.midX - frame.width / 2, y: visible.maxY - PanelSize.topGap - (visible.height - PanelSize.topGap - gap + frame.height) / 2)
         }
-        let x = min(max(origin.x, visible.minX), max(visible.maxX - size.width, visible.minX))
-        let y = min(max(origin.y, visible.minY), max(visible.maxY - size.height, visible.minY))
-        panel.setFrameOrigin(NSPoint(x: x, y: y))
+        let x = min(max(origin.x, visible.minX), max(visible.maxX - frame.width, visible.minX))
+        let y = min(max(origin.y, visible.minY + gap), max(visible.maxY - PanelSize.topGap - frame.height, visible.minY))
+        panel.setFrame(NSRect(origin: NSPoint(x: x, y: y), size: frame), display: true, animate: panel.isVisible)
     }
 
     func showSettings(_ content: NSView) {

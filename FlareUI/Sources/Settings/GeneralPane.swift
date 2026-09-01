@@ -12,7 +12,7 @@ struct GeneralPane: View {
                 HStack(alignment: .top, spacing: 20) {
                     ToggleCard(
                         title: "Open at Login",
-                        description: "Flare is ready the moment you log in.",
+                        description: "Flare is ready as soon as you log in.",
                         icon: "power",
                         isOn: launchAtLogin.isEnabled,
                         action: { launchAtLogin.set(!launchAtLogin.isEnabled) }
@@ -22,7 +22,7 @@ struct GeneralPane: View {
 
                     ToggleCard(
                         title: "Show in Dock",
-                        description: "Adds a Dock tile and an app switcher entry.",
+                        description: "Adds a Dock icon and an app switcher entry.",
                         icon: "dock.rectangle",
                         isOn: preferences.showsDockIcon,
                         action: { preferences.$showsDockIcon.withLock { $0.toggle() } }
@@ -52,7 +52,7 @@ struct GeneralPane: View {
                             aspectRatio: 1.45,
                             action: { preferences.$panelPositionRaw.withLock { $0 = position.rawValue } }
                         ) {
-                            PanelPositionIllustration(position: position)
+                            PanelPositionIllustration(position: position, size: preferences.panelSize)
                         }
                     }
                 }
@@ -61,22 +61,55 @@ struct GeneralPane: View {
                 .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
 
                 Toggle("Restore last position", isOn: Binding(preferences.$remembersPanelPosition))
-                Text("Drag the panel anywhere and it reopens where you left it. Off, it opens at the spot above every time.")
+                Text("Reopens where you dragged it.")
+                    .settingFootnote()
+            }
+
+            Section("Size") {
+                HStack(alignment: .top, spacing: 14) {
+                    ForEach(PanelSize.allCases) { size in
+                        ToggleCard(
+                            title: size.title,
+                            description: size.description,
+                            icon: size.symbol,
+                            isOn: preferences.panelSize == size,
+                            aspectRatio: 1.45,
+                            action: { preferences.$panelSizeRaw.withLock { $0 = size.rawValue } }
+                        ) {
+                            PanelPositionIllustration(position: preferences.panelPosition, size: size)
+                        }
+                    }
+                }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 6)
+                .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+            }
+
+            Section("Tools") {
+                HStack(spacing: 10) {
+                    ToolChip(title: "Web", symbol: "globe", isOn: preferences.webSearchEnabled) {
+                        preferences.$webSearchEnabled.withLock { $0.toggle() }
+                    }
+                    ToolChip(title: "Image", symbol: "photo", isOn: preferences.imagesEnabled) {
+                        preferences.$imagesEnabled.withLock { $0.toggle() }
+                    }
+                    Spacer()
+                }
+                .padding(.vertical, 4)
+                Text("What the model may reach for on its own.")
                     .settingFootnote()
             }
 
             Section("Panel") {
-                Toggle("Search the web when it helps", isOn: Binding(preferences.$webSearchEnabled))
-                Toggle("Generate images when asked", isOn: Binding(preferences.$imagesEnabled))
                 Toggle("Float on top", isOn: Binding(preferences.$staysOnTop))
-                Text("Keeps the panel above other windows and stops it closing when it loses focus. Escape and the hotkey still close it.")
+                Text("Stays above other windows and open when it loses focus.")
                     .settingFootnote()
                 Picker("When Flare opens", selection: Binding(preferences.$newThreadOnOpen)) {
-                    Text("Resume the last chat").tag(false)
+                    Text("Resume last chat").tag(false)
                     Text("Start a new chat").tag(true)
                 }
                 .pickerStyle(.inline)
-                Toggle("Show the model's reasoning summary", isOn: Binding(preferences.$showsReasoning))
+                Toggle("Show reasoning", isOn: Binding(preferences.$showsReasoning))
             }
         }
         .task { launchAtLogin.refresh() }

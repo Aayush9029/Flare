@@ -16,6 +16,7 @@ public final class Preferences {
     @ObservationIgnored @Shared(.newThreadOnOpen) public var newThreadOnOpen: Bool
     @ObservationIgnored @Shared(.remembersPanelPosition) public var remembersPanelPosition: Bool
     @ObservationIgnored @Shared(.panelPosition) public var panelPositionRaw: String
+    @ObservationIgnored @Shared(.panelSize) public var panelSizeRaw: String
     @ObservationIgnored @Shared(.hasAppliedDefaultLoginItem) public var hasAppliedDefaultLoginItem: Bool
 
     public nonisolated static let defaultSystemPrompt = """
@@ -32,6 +33,10 @@ public final class Preferences {
 
     public var panelPosition: PanelPosition {
         PanelPosition(rawValue: panelPositionRaw) ?? .bottomRight
+    }
+
+    public var panelSize: PanelSize {
+        PanelSize(rawValue: panelSizeRaw) ?? .compact
     }
 
     public var model: ChatModelOption {

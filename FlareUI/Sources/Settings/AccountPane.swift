@@ -10,6 +10,7 @@ struct AccountPane: View {
 
     @State private var account: Account?
     @State private var apiKey: String?
+    @State private var draftKey = ""
     @State private var isWorking = false
     @State private var lastErrorMessage: String?
     @State private var showingSignOutConfirmation = false
@@ -20,18 +21,32 @@ struct AccountPane: View {
         FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.codex/auth.json")
     }
 
+    /// The stored choice, with the old Automatic value read as whichever is set up.
+    private var choice: CredentialPreference {
+        switch CredentialPreference(rawValue: credentialPreferenceRaw) ?? .automatic {
+        case .apiKey: .apiKey
+        case .chatgpt: .chatgpt
+        case .automatic: apiKey == nil ? .chatgpt : .apiKey
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                sourceCard
-                accountCard
-                apiKeyCard
+                chooser
+                if choice == .apiKey {
+                    apiKeyCard
+                } else {
+                    accountCard
+                }
 
                 if let lastErrorMessage {
                     errorRow(lastErrorMessage)
                 }
 
-                helpText
+                Text(choice.detail)
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(16)
@@ -43,63 +58,109 @@ struct AccountPane: View {
         }
     }
 
-    private var sourceCard: some View {
-        SettingsCard {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("ANSWER WITH")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                Picker("", selection: Binding($credentialPreferenceRaw)) {
-                    ForEach(CredentialPreference.allCases, id: \.rawValue) { option in
-                        Text(option.title).tag(option.rawValue)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                Text(selectedPreference.detail)
-                    .settingFootnote()
-            }
-            .padding(16)
-            .cardBand(0)
+    // MARK: Choice
+
+    private var chooser: some View {
+        HStack(spacing: 12) {
+            choiceCard(.chatgpt, symbol: "person.crop.circle", caption: isSignedIn ? (account?.email ?? "Signed in") : "Subscription")
+            choiceCard(.apiKey, symbol: "key", caption: apiKey == nil ? "Per token" : Self.masked(apiKey ?? ""))
         }
     }
 
-    private var selectedPreference: CredentialPreference {
-        CredentialPreference(rawValue: credentialPreferenceRaw) ?? .automatic
+    private func choiceCard(_ option: CredentialPreference, symbol: String, caption: String) -> some View {
+        SelectableCard(isSelected: choice == option) {
+            choose(option)
+        } content: {
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(option.title)
+                        .font(.callout.weight(.semibold))
+                    Text(caption)
+                        .font(.caption)
+                        .opacity(0.7)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(8)
+        }
     }
+
+    /// ChatGPT adopts a Codex CLI session on its own; the browser is the fallback.
+    private func choose(_ option: CredentialPreference) {
+        $credentialPreferenceRaw.withLock { $0 = option.rawValue }
+        if option == .chatgpt, !isSignedIn, hasCodexSession {
+            run { account = try await auth.importFromCodexCLI().account }
+        }
+    }
+
+    // MARK: ChatGPT
 
     private var accountCard: some View {
         SettingsCard {
             HStack(spacing: 14) {
                 statusIcon
-                identitySection
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("CHATGPT")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    Text(account?.email ?? "Not signed in")
+                        .font(.system(.body, design: .monospaced))
+                        .lineLimit(1)
+                }
                 Spacer(minLength: 8)
-                trailingControl
+                if isWorking {
+                    ProgressView().controlSize(.small)
+                } else if isSignedIn {
+                    statusPill
+                }
             }
             .padding(16)
             .cardBand(0)
 
-            if isSignedIn {
-                HStack(spacing: 8) {
-                    Text("Subscription")
-                        .font(.caption.weight(.medium))
-                    statusPill
-                    Spacer()
-                    actionButtons
+            HStack(spacing: 16) {
+                if isSignedIn {
+                    Button("SIGN OUT") { showingSignOutConfirmation = true }
+                        .buttonStyle(.plain)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .disabled(isWorking)
+                        .confirmationDialog("Sign out of ChatGPT?", isPresented: $showingSignOutConfirmation) {
+                            Button("Sign Out", role: .destructive) {
+                                run {
+                                    try await auth.signOut()
+                                    account = nil
+                                }
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("Your chats stay on this Mac.")
+                        }
+                } else {
+                    prominentButton("SIGN IN") {
+                        run { account = try await auth.signIn().account }
+                    }
+                    if hasCodexSession {
+                        Button("USE CODEX SESSION") {
+                            run { account = try await auth.importFromCodexCLI().account }
+                        }
+                        .buttonStyle(.plain)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .disabled(isWorking)
+                    }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .cardBand(1)
-            } else {
-                HStack(spacing: 16) {
-                    actionButtons
-                    Spacer()
-                }
-                .padding(16)
-                .cardBand(1)
+                Spacer()
             }
+            .padding(16)
+            .cardBand(1)
         }
     }
+
+    // MARK: API key
 
     private var apiKeyCard: some View {
         SettingsCard {
@@ -108,29 +169,39 @@ struct AccountPane: View {
                     .font(.system(size: 26))
                     .foregroundStyle(apiKey == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.purple))
                     .frame(width: 36, height: 36)
-
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("OPENAI API KEY")
+                    Text("API KEY")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
-                    Text(apiKey.map(Self.masked) ?? "Not set")
-                        .font(.system(.body, design: .monospaced))
-                        .lineLimit(1)
+                    if let apiKey {
+                        Text(Self.masked(apiKey))
+                            .font(.system(.body, design: .monospaced))
+                            .lineLimit(1)
+                    } else {
+                        SecureField("sk-…", text: $draftKey)
+                            .textFieldStyle(.plain)
+                            .font(.system(.body, design: .monospaced))
+                            .onSubmit(saveDraft)
+                    }
                 }
                 Spacer(minLength: 8)
+                if isWorking { ProgressView().controlSize(.small) }
             }
             .padding(16)
             .cardBand(0)
 
             HStack(spacing: 16) {
                 if apiKey == nil {
-                    Button("USE ENVIRONMENT KEY") {
+                    prominentButton("SAVE KEY", action: saveDraft)
+                        .disabled(draftKey.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Button("USE SHELL KEY") {
                         run { apiKey = try auth.importAPIKeyFromEnvironment() }
                     }
                     .buttonStyle(.plain)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .disabled(isWorking)
+                    .help("Reads OPENAI_API_KEY from your login shell")
                 } else {
                     Button("REMOVE KEY") {
                         run {
@@ -144,18 +215,40 @@ struct AccountPane: View {
                     .disabled(isWorking)
                 }
                 Spacer()
-                Text(apiKey == nil ? "Billed to ChatGPT" : "Billed per token")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             .padding(16)
             .cardBand(1)
         }
     }
 
+    private func saveDraft() {
+        let key = draftKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return }
+        run {
+            try auth.setAPIKey(key)
+            apiKey = key
+            draftKey = ""
+        }
+    }
+
     private static func masked(_ key: String) -> String {
         guard key.count > 12 else { return String(repeating: "•", count: key.count) }
         return key.prefix(7) + String(repeating: "•", count: 12) + key.suffix(4)
+    }
+
+    // MARK: Pieces
+
+    private func prominentButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.accentColor, in: .rect(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white)
+        .disabled(isWorking)
     }
 
     private var statusIcon: some View {
@@ -174,35 +267,6 @@ struct AccountPane: View {
         .animation(.easeInOut(duration: 0.25), value: isSignedIn)
     }
 
-    private var identitySection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("CHATGPT ACCOUNT")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-
-            Text(account?.email ?? "Not signed in")
-                .font(.system(.body, design: .monospaced))
-                .lineLimit(1)
-        }
-    }
-
-    @ViewBuilder
-    private var trailingControl: some View {
-        if isWorking {
-            ProgressView().controlSize(.small)
-        } else if isSignedIn {
-            Button {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(account?.email ?? "", forType: .string)
-            } label: {
-                Image(systemName: "document.on.document")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Copy email")
-        }
-    }
-
     private var statusPill: some View {
         Text(account?.planDisplayName ?? "Active")
             .font(.caption2.weight(.semibold))
@@ -210,54 +274,6 @@ struct AccountPane: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(Color.green.opacity(0.15), in: .rect(cornerRadius: 4))
-    }
-
-    @ViewBuilder
-    private var actionButtons: some View {
-        if isSignedIn {
-            Button("SIGN OUT") { showingSignOutConfirmation = true }
-                .buttonStyle(.plain)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .disabled(isWorking)
-                .confirmationDialog(
-                    "Sign out of ChatGPT?",
-                    isPresented: $showingSignOutConfirmation
-                ) {
-                    Button("Sign Out", role: .destructive) {
-                        run {
-                            try await auth.signOut()
-                            account = nil
-                        }
-                    }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    Text("Your chats stay on this Mac. You need to sign in again to send new messages.")
-                }
-        } else {
-            Button {
-                run { account = try await auth.signIn().account }
-            } label: {
-                Text("SIGN IN")
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.accentColor, in: .rect(cornerRadius: 6))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white)
-            .disabled(isWorking)
-
-            if hasCodexSession {
-                Button("USE CODEX CLI SESSION") {
-                    run { account = try await auth.importFromCodexCLI().account }
-                }
-                .buttonStyle(.plain)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .disabled(isWorking)
-            }
-        }
     }
 
     private func errorRow(_ message: String) -> some View {
@@ -270,16 +286,6 @@ struct AccountPane: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-    }
-
-    private var helpText: some View {
-        Text(apiKey != nil
-            ? "An API key takes priority and bills per token through api.openai.com. Remove it to fall back to your ChatGPT subscription."
-            : isSignedIn
-                ? "Flare talks to the Codex backend with your ChatGPT subscription. No API key, no extra billing."
-                : "Sign in with the same ChatGPT OAuth client the Codex CLI uses, or set an OPENAI_API_KEY. Credentials are stored under Application Support, not the Keychain.")
-            .font(.callout)
-            .foregroundStyle(.tertiary)
     }
 
     private func run(_ work: @escaping () async throws -> Void) {
