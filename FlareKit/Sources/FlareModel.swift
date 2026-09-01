@@ -48,6 +48,9 @@ public final class FlareModel {
     /// this row until the stored message arrives, so the answer never blinks out.
     public private(set) var liveMessage: ChatMessage?
     public private(set) var liveHasReasoning = false
+    /// Thinking runs from the first reasoning delta to the first answer delta.
+    public private(set) var liveReasoningStartedAt: Date?
+    public private(set) var liveReasoningEndedAt: Date?
     @ObservationIgnored private var relays: [ChatMessage.ID: MessageRelays] = [:]
 
     public private(set) var palette = CommandPaletteState()
@@ -234,6 +237,8 @@ public final class FlareModel {
         let messageID = ChatMessage.ID(uuid())
         liveMessage = ChatMessage(id: messageID, threadID: threadID, role: .assistant, createdAt: now)
         liveHasReasoning = false
+        liveReasoningStartedAt = nil
+        liveReasoningEndedAt = nil
         let response = MarkdownRelay()
         let reasoning = MarkdownRelay()
         liveResponse = response
@@ -292,10 +297,15 @@ public final class FlareModel {
             )
             for try await event in events {
                 switch event {
-                case .outputTextDelta(let delta): response.append(delta)
+                case .outputTextDelta(let delta):
+                    response.append(delta)
+                    if liveReasoningStartedAt != nil, liveReasoningEndedAt == nil { liveReasoningEndedAt = now }
                 case .reasoningSummaryDelta(let delta):
                     reasoning.append(delta)
-                    if !liveHasReasoning { liveHasReasoning = true }
+                    if !liveHasReasoning {
+                        liveHasReasoning = true
+                        liveReasoningStartedAt = now
+                    }
                 case .imageGenerationStarted: isGeneratingImage = true
                 case .image(let data):
                     isGeneratingImage = false
@@ -319,12 +329,15 @@ public final class FlareModel {
             endStream()
             return
         }
+        if liveReasoningStartedAt != nil, liveReasoningEndedAt == nil { liveReasoningEndedAt = now }
+        let reasoningSeconds = zip(liveReasoningStartedAt, liveReasoningEndedAt).map { $1.timeIntervalSince($0) } ?? 0
         let assistantMessage = ChatMessage(
             id: messageID,
             threadID: threadID,
             role: .assistant,
             content: text,
             reasoning: reasoning.text,
+            reasoningSeconds: reasoningSeconds,
             imageFile: imageFile,
             createdAt: now
         )
@@ -465,4 +478,9 @@ public struct CommandPaletteState: Equatable, Sendable {
 private struct MessageRelays {
     let response: MarkdownRelay
     let reasoning: MarkdownRelay
+}
+
+private func zip<A, B>(_ a: A?, _ b: B?) -> (A, B)? {
+    guard let a, let b else { return nil }
+    return (a, b)
 }

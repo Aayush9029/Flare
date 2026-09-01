@@ -15,7 +15,20 @@ struct MessageRow: View {
     private var isStreaming: Bool { model.isStreaming && isLatestAnswer }
 
     private var hasReasoning: Bool {
-        isStreaming ? model.liveHasReasoning : !message.reasoning.isEmpty
+        (isLatestAnswer && model.liveHasReasoning) || !message.reasoning.isEmpty
+    }
+
+    /// Reasoning is still arriving and no answer text has started.
+    private var isThinking: Bool {
+        isStreaming && model.liveReasoningStartedAt != nil && model.liveReasoningEndedAt == nil
+    }
+
+    private var reasoningSeconds: Double {
+        if message.reasoningSeconds > 0 { return message.reasoningSeconds }
+        if isLatestAnswer, let start = model.liveReasoningStartedAt, let end = model.liveReasoningEndedAt {
+            return end.timeIntervalSince(start)
+        }
+        return 0
     }
 
     var body: some View {
@@ -29,7 +42,12 @@ struct MessageRow: View {
                     .background(.primary.opacity(0.07), in: .rect(cornerRadius: 12, style: .continuous))
             } else {
                 if model.preferences.showsReasoning, hasReasoning {
-                    ReasoningDisclosure(relay: model.reasoningRelay(for: message), isStreaming: isStreaming)
+                    ReasoningView(
+                        relay: model.reasoningRelay(for: message),
+                        isThinking: isThinking,
+                        startedAt: isLatestAnswer ? model.liveReasoningStartedAt : nil,
+                        seconds: reasoningSeconds
+                    )
                 }
 
                 MarkdownMessageView(relay: model.responseRelay(for: message), theme: .answer)
@@ -154,27 +172,5 @@ private struct RoleLabel: View {
             }
         }
         .font(.caption.weight(.medium))
-    }
-}
-
-/// Open while the model is still reasoning, folded away once the answer lands.
-private struct ReasoningDisclosure: View {
-    let relay: MarkdownRelay
-    let isStreaming: Bool
-    @State private var isExpanded = false
-
-    var body: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
-            MarkdownMessageView(relay: relay, theme: .reasoning)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } label: {
-            Text("Reasoning")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-        }
-        .onAppear { isExpanded = isStreaming }
-        .onChange(of: isStreaming) { _, streaming in
-            withAnimation(.easeInOut(duration: 0.25)) { isExpanded = streaming }
-        }
     }
 }

@@ -41,6 +41,8 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
     public var role: Role
     public var content = ""
     public var reasoning = ""
+    /// How long the model reasoned before it answered. Zero when unknown.
+    public var reasoningSeconds: Double = 0
     public var imageFile = ""
     public var createdAt = Date()
 
@@ -55,6 +57,7 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
         role: Role,
         content: String = "",
         reasoning: String = "",
+        reasoningSeconds: Double = 0,
         imageFile: String = "",
         createdAt: Date = Date()
     ) {
@@ -63,6 +66,7 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
         self.role = role
         self.content = content
         self.reasoning = reasoning
+        self.reasoningSeconds = reasoningSeconds
         self.imageFile = imageFile
         self.createdAt = createdAt
     }
@@ -167,6 +171,15 @@ public extension DependencyValues {
             try #sql(
                 """
                 ALTER TABLE "chatMessages" ADD COLUMN "imageFile" TEXT NOT NULL DEFAULT ''
+                """
+            )
+            .execute(db)
+        }
+
+        migrator.registerMigration("Reasoning duration") { db in
+            try #sql(
+                """
+                ALTER TABLE "chatMessages" ADD COLUMN "reasoningSeconds" REAL NOT NULL DEFAULT 0
                 """
             )
             .execute(db)
