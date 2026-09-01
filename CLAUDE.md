@@ -152,9 +152,10 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   stored, and the live placeholder shares the stored message's id, so the row keeps its identity
   and its parsed document across the handover. `MarkdownView` starts empty and re-parses on every
   text change, which made a long answer blink out the moment it finished.
-- Reasoning renders in `ReasoningView`: "Thinking…" over a short window that follows the newest
-  lines while summaries stream, then "Thought for Ns" folded away once answer text starts, opened
-  by a click. Thinking runs from the first reasoning delta to the first answer delta and is stored
+- Reasoning renders in `ReasoningView` as a card after Grok's: a header with the elapsed time
+  over a short window that follows the newest lines while summaries stream, then only the header,
+  "Thought for Ns", once answer text starts, opened by a click. The summaries title their sections
+  with a bold line of their own, which the reasoning theme sets as a heading. Thinking runs from the first reasoning delta to the first answer delta and is stored
   in `chatMessages.reasoningSeconds`; zero means unknown and the header falls back to "Reasoning".
 - The transcript is a plain `VStack` in a `ScrollView`, not a `LazyVStack`: lazy rows estimate the
   height of the text views underneath and jitter under a bottom anchor. It follows new content only

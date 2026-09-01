@@ -72,7 +72,17 @@ private struct State {
     mutating func appendBlock(_ markup: Markup, context: BlockContext) {
         switch markup {
         case let paragraph as Paragraph:
-            blocks.append(marked(styled(inlines(paragraph.children, base: baseStyle(context)), paragraph: paragraphStyle(context: context, spacingAfter: theme.blockSpacing)), context))
+            if theme.boldLinesAreTitles, paragraph.childCount == 1, let strong = paragraph.child(at: 0) as? Strong {
+                var style = baseStyle(context)
+                style.bold = true
+                style.color = .labelColor
+                style.size = theme.bodySize + 0.5
+                let title = paragraphStyle(context: context, spacingAfter: 4)
+                title.paragraphSpacingBefore = context.isFirstBlock ? 0 : 6
+                blocks.append(marked(styled(inlines(strong.children, base: style), paragraph: title), context))
+            } else {
+                blocks.append(marked(styled(inlines(paragraph.children, base: baseStyle(context)), paragraph: paragraphStyle(context: context, spacingAfter: theme.blockSpacing)), context))
+            }
         case let heading as Heading:
             var style = baseStyle(context)
             style.size = theme.heading(level: heading.level).pointSize

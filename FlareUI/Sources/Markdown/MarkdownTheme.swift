@@ -8,9 +8,12 @@ struct MarkdownTheme: @unchecked Sendable {
     let blockSpacing: CGFloat
     let textColor: NSColor
     let codeSize: CGFloat
+    /// Reasoning summaries title their sections with a bold line of their own.
+    /// Grok sets those as headings over the muted lines beneath; so does this.
+    var boldLinesAreTitles = false
 
     static let answer = MarkdownTheme(bodySize: 13.5, lineSpacing: 4.5, blockSpacing: 10, textColor: .labelColor, codeSize: 12.5)
-    static let reasoning = MarkdownTheme(bodySize: 12, lineSpacing: 3, blockSpacing: 6, textColor: .secondaryLabelColor, codeSize: 11.5)
+    static let reasoning = MarkdownTheme(bodySize: 12, lineSpacing: 3, blockSpacing: 6, textColor: .secondaryLabelColor, codeSize: 11.5, boldLinesAreTitles: true)
 
     var body: NSFont { .systemFont(ofSize: bodySize) }
     var bold: NSFont { .systemFont(ofSize: bodySize, weight: .semibold) }
