@@ -104,6 +104,10 @@ extension StreamEvent {
             return (object["delta"] as? String).map(StreamEvent.outputTextDelta)
         case "response.reasoning_summary_text.delta":
             return (object["delta"] as? String).map(StreamEvent.reasoningSummaryDelta)
+        case "response.reasoning_summary_part.added":
+            // Parts arrive as separate paragraphs with no separator of their own.
+            guard let index = object["summary_index"] as? Int, index > 0 else { return nil }
+            return .reasoningSummaryDelta("\n\n")
         case "response.web_search_call.in_progress", "response.web_search_call.searching":
             return .webSearchStarted
         case "response.web_search_call.completed":

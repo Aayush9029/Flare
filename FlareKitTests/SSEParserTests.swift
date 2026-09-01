@@ -62,6 +62,15 @@ struct StreamEventTests {
         )
     }
 
+    @Test("Separates reasoning summary parts with a paragraph break")
+    func reasoningPartBoundary() {
+        #expect(decode(#"{"type":"response.reasoning_summary_part.added","summary_index":0}"#) == nil)
+        #expect(
+            decode(#"{"type":"response.reasoning_summary_part.added","summary_index":1}"#)
+                == .reasoningSummaryDelta("\n\n")
+        )
+    }
+
     @Test("Decodes completion")
     func completed() {
         #expect(decode(#"{"type":"response.completed"}"#) == .completed)
