@@ -162,13 +162,11 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         guard let screen else { return }
         let visible = screen.visibleFrame
         let size = panel.frame.size
-        // Clamped: on a short display, or after the user enlarges the panel, the
-        // 0.62 anchor alone can push the title area off the top of the screen.
-        let x = min(max(visible.midX - size.width / 2, visible.minX), visible.maxX - size.width)
-        let y = min(
-            max(visible.minY + visible.height * 0.62 - size.height / 2, visible.minY),
-            visible.maxY - size.height
-        )
+        // Bottom-right of the screen under the pointer, a hand's width in from the
+        // edges. Clamped so a short display or an enlarged panel stays on screen.
+        let gap: CGFloat = 16
+        let x = max(visible.maxX - size.width - gap, visible.minX)
+        let y = min(max(visible.minY + gap, visible.minY), visible.maxY - size.height)
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
