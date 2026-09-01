@@ -61,15 +61,33 @@ public struct FlareBolt: Shape {
         )
     }
 
+    /// The deep purple that reads on a light panel sinks into a dark one, so the
+    /// stops lift to lavender under the dark appearance.
     public static let gradient = LinearGradient(
         colors: [
-            Color(red: 0.694, green: 0.549, blue: 1.0),
-            Color(red: 0.482, green: 0.247, blue: 0.894),
-            Color(red: 0.290, green: 0.114, blue: 0.651),
+            adaptive(
+                light: Color(red: 0.694, green: 0.549, blue: 1.0),
+                dark: Color(red: 0.86, green: 0.78, blue: 1.0)
+            ),
+            adaptive(
+                light: Color(red: 0.482, green: 0.247, blue: 0.894),
+                dark: Color(red: 0.76, green: 0.64, blue: 1.0)
+            ),
+            adaptive(
+                light: Color(red: 0.290, green: 0.114, blue: 0.651),
+                dark: Color(red: 0.66, green: 0.50, blue: 1.0)
+            ),
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+
+    private static func adaptive(light: Color, dark: Color) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            return NSColor(isDark ? dark : light)
+        })
+    }
 
     /// Mirrors the `fill` in `AppIcon.icon`, so the About pane matches the Dock.
     public static let iconBackground = LinearGradient(
