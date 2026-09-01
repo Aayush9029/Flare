@@ -4,6 +4,7 @@ import Dependencies
 public struct WindowClient: Sendable {
     public var createPanel: @MainActor @Sendable (_ content: NSView) -> Void
     public var isVisible: @MainActor @Sendable () -> Bool
+    public var isKey: @MainActor @Sendable () -> Bool
     public var show: @MainActor @Sendable () -> Void
     public var hide: @MainActor @Sendable () -> Void
     public var reposition: @MainActor @Sendable () -> Void
@@ -19,6 +20,7 @@ extension WindowClient: DependencyKey {
         WindowClient(
             createPanel: { content in PanelHost.shared.createPanel(content) },
             isVisible: { PanelHost.shared.panel?.isVisible ?? false },
+            isKey: { PanelHost.shared.panel?.isKeyWindow ?? false },
             show: { PanelHost.shared.show() },
             hide: { PanelHost.shared.hide() },
             reposition: { PanelHost.shared.reposition() },
@@ -35,6 +37,7 @@ extension WindowClient: TestDependencyKey {
     public static let testValue = WindowClient(
         createPanel: { _ in },
         isVisible: { false },
+        isKey: { false },
         show: {},
         hide: {},
         reposition: {},

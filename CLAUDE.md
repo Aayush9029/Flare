@@ -116,6 +116,17 @@ nothing; if it starts failing, check the product type first.
 full-width chat, not a 470 pt panel) and `CodeBlockConfig.theme`, whose `.default` deliberately
 keeps dark code styling in both appearances. `.xcode` resolves light and dark itself.
 
+## Driving the app from a script
+
+The panel is a non-activating window, so Flare is never the frontmost app. A System Events
+`keystroke` goes to whichever app is frontmost, which is usually not Flare: one such keystroke
+posted a prompt into Slack. Drive the panel through accessibility actions aimed at the process
+instead. Set the composer with `set value of <the AXTextField>` and press the send button with
+`click`, both inside `tell process "Flare"`. The send button has no title; find it by its help
+text, `Send (Return)` while idle and `Stop (⌘.)` while a reply streams, which also tells a
+script when the stream has ended. `⌘⇧Space` is safe to send from a script, because it is a
+global hotkey that Flare intercepts before any app sees it.
+
 ## Conventions
 
 - One type per file, Breeze-style, in `FlareUI/Sources/Settings/`.

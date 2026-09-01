@@ -59,10 +59,13 @@ public final class FlareModel {
     public init() {}
 
     public func toggle() {
-        if windowClient.isVisible() {
+        guard windowClient.isVisible() else { return open() }
+        // Pinned on top, the panel stays visible after another app takes the keyboard.
+        // The hotkey then brings focus back rather than closing it.
+        if windowClient.isKey() {
             hide()
         } else {
-            open()
+            windowClient.show()
         }
     }
 
