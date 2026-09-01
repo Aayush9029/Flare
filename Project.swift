@@ -79,7 +79,14 @@ let project = Project(
                 .external(name: "KeyboardShortcuts"),
                 .external(name: "SwiftStreamingMarkdown"),
                 .external(name: "Markdown"),
-            ]
+            ],
+            settings: .settings(
+                base: [
+                    // Swift 6.3.3 crashes in IRGen on this module under whole
+                    // module optimization. Remove once runners ship Xcode 27.
+                    "SWIFT_COMPILATION_MODE": "incremental",
+                ]
+            )
         ),
         .target(
             name: "FlareKitTests",
