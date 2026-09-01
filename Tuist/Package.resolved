@@ -1,5 +1,5 @@
 {
-  "originHash" : "836b73ca34c065d49b40c2a113c7ab94d9648ed89ad9b1b78fea3e9a22fb8fac",
+  "originHash" : "b8086621d632c4f87b8d451903416d095e68b640fa85f11b9a6b5fba889908f7",
   "pins" : [
     {
       "identity" : "combine-schedulers",
@@ -8,15 +8,6 @@
       "state" : {
         "revision" : "c96fdbf1223e22fa4566ac5f40513506dcf5dd41",
         "version" : "1.2.1"
-      }
-    },
-    {
-      "identity" : "equatable",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/ordo-one/equatable",
-      "state" : {
-        "revision" : "597c2bb34af0c51331eb3b5e705f942d8ee20daa",
-        "version" : "1.4.1"
       }
     },
     {
@@ -34,14 +25,6 @@
       "location" : "https://github.com/appstefan/highlightswift",
       "state" : {
         "revision" : "99c431b38a1444a5fd6a4978307fbbefe3a7af53"
-      }
-    },
-    {
-      "identity" : "iosmath",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/junyan72/iosMath",
-      "state" : {
-        "revision" : "ba9ab7729b151329c54fd895a7c1859981d9484c"
       }
     },
     {
@@ -213,23 +196,6 @@
       "state" : {
         "revision" : "3907a9438f5b57d317001dc99f3f11b46882272b",
         "version" : "0.10.0"
-      }
-    },
-    {
-      "identity" : "swiftstreamingmarkdown",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/microsoft/SwiftStreamingMarkdown",
-      "state" : {
-        "revision" : "5f7c04e0558df6146f90d482edb62cb456986bda"
-      }
-    },
-    {
-      "identity" : "swiftui-shimmer",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/markiv/SwiftUI-Shimmer",
-      "state" : {
-        "revision" : "0226e21f9bf355d40e07e5f5e1c33679d50e167f",
-        "version" : "1.5.1"
       }
     }
   ],

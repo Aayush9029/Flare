@@ -19,7 +19,7 @@ let packageSettings = PackageSettings(
         "KeyboardShortcuts": .staticFramework,
         "SQLiteData": .staticFramework,
         "StructuredQueries": .staticFramework,
-        "SwiftStreamingMarkdown": .framework,
+        "HighlightSwift": .staticFramework,
     ],
     // Tuist resolves the package graph but does not forward SPM traits to the
     // generated targets, so the `Tagged` condition has to be set by hand.
@@ -43,8 +43,7 @@ let package = Package(
         // The `Tagged` trait ships SQLiteData's conformances for `Tagged` IDs.
         .package(url: "https://github.com/pointfreeco/sqlite-data", from: "1.11.2", traits: ["Tagged"]),
         .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "3.0.1"),
-        // v0.7.0. Pinned by revision, not version: the package resolves `highlightswift`
-        // by revision, and SPM refuses to let a stable-version requirement depend on that.
-        .package(url: "https://github.com/microsoft/SwiftStreamingMarkdown", revision: "5f7c04e0558df6146f90d482edb62cb456986bda"),
+        .package(url: "https://github.com/swiftlang/swift-markdown", from: "0.7.3"),
+        .package(url: "https://github.com/appstefan/HighlightSwift", revision: "99c431b38a1444a5fd6a4978307fbbefe3a7af53"),
     ]
 )

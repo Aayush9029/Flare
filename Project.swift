@@ -77,8 +77,8 @@ let project = Project(
                 .external(name: "SwiftUINavigation"),
                 .external(name: "Sharing"),
                 .external(name: "KeyboardShortcuts"),
-                .external(name: "SwiftStreamingMarkdown"),
                 .external(name: "Markdown"),
+                .external(name: "HighlightSwift"),
             ],
             settings: .settings(
                 base: [
@@ -100,7 +100,6 @@ let project = Project(
                 .target(name: "FlareKit"),
                 .external(name: "DependenciesTestSupport"),
                 .external(name: "CustomDump"),
-                .external(name: "SwiftStreamingMarkdown"),
                 .external(name: "Markdown"),
             ]
         ),

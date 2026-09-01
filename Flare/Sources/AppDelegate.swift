@@ -24,6 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.showSettings(model: model)
             })
         )
+        // The panel is window-sized. Without this the hosting view re-derives its
+        // minimum, maximum and intrinsic sizes on every update, proposing extra
+        // widths to every text view and forcing full relayouts at each.
+        content.sizingOptions = []
         content.setFrameSize(NSSize(width: 470, height: 660))
         windowClient.createPanel(content)
         windowClient.setCancelHandler { [weak model] in

@@ -16,23 +16,28 @@ struct StreamingBorder: ViewModifier {
         content
             .overlay {
                 if isActive {
+                    // The gradient is rasterised once and rotated as a texture. Shading a
+                    // conic gradient through a blur on every frame cost a tenth of the
+                    // main thread while a reply streamed.
                     TimelineView(.animation) { timeline in
                         let angle = Angle.degrees(
                             timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3) / 3 * 360
                         )
                         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        let gradient = AngularGradient(colors: colors, center: .center, angle: angle)
-
-                        shape
-                            .strokeBorder(gradient, lineWidth: 2)
-                            .overlay {
-                                // A blurred copy of the same stroke reads as a glow
-                                // without a second animation to keep in step.
-                                shape
-                                    .strokeBorder(gradient, lineWidth: 4)
-                                    .blur(radius: 7)
-                                    .opacity(0.7)
-                            }
+                        GeometryReader { proxy in
+                            let side = max(proxy.size.width, proxy.size.height) * 1.5
+                            let disc = AngularGradient(colors: colors, center: .center)
+                                .frame(width: side, height: side)
+                                .drawingGroup()
+                                .rotationEffect(angle)
+                                .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                            disc.mask(shape.strokeBorder(lineWidth: 2))
+                                .overlay {
+                                    disc.mask(shape.strokeBorder(lineWidth: 4))
+                                        .blur(radius: 7)
+                                        .opacity(0.7)
+                                }
+                        }
                     }
                     .allowsHitTesting(false)
                     .transition(.opacity)

@@ -2,7 +2,6 @@ import AppKit
 import Dependencies
 import FlareKit
 import SwiftUI
-import SwiftStreamingMarkdown
 
 /// One message, streaming or stored. Assistant text always renders through the
 /// relay the model hands out, so a row is never rebuilt when its answer lands.
@@ -33,14 +32,8 @@ struct MessageRow: View {
                     ReasoningDisclosure(relay: model.reasoningRelay(for: message), isStreaming: isStreaming)
                 }
 
-                // The package renders paragraphs through an NSViewRepresentable, which
-                // collapses to zero height unless it is given a definite width.
-                StreamedMarkdownView(
-                    source: RelayMarkdownSource(relay: model.responseRelay(for: message)),
-                    config: MarkdownStyle.config
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
+                MarkdownMessageView(relay: model.responseRelay(for: message), theme: .answer)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 if isLatestAnswer, !model.liveCitations.isEmpty {
                     CitationRow(citations: model.liveCitations)
@@ -172,12 +165,8 @@ private struct ReasoningDisclosure: View {
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
-            StreamedMarkdownView(
-                source: RelayMarkdownSource(relay: relay),
-                config: MarkdownStyle.reasoningConfig
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
+            MarkdownMessageView(relay: relay, theme: .reasoning)
+                .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
             Text("Reasoning")
                 .font(.caption.weight(.medium))

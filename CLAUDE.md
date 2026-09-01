@@ -105,27 +105,28 @@ images survive a relaunch. Markdown images (`![](https://…)`) render too, via 
 
 ## Markdown rendering
 
-`SwiftStreamingMarkdown` **must be a dynamic `.framework` in `Tuist/Package.swift`, not a
-`.staticFramework`.** Its `blockConvertibleChildren` casts every node with `as? BlockConvertible`;
-static linking strips the protocol-conformance metadata, every cast fails, and the parser returns
-an empty document for all input — the app renders a blank assistant bubble with no error anywhere.
-`MarkdownRenderingTests` guards this by parsing text and asserting the result differs from parsing
-nothing; if it starts failing, check the product type first.
+`FlareUI/Sources/Markdown/` renders answers without a Markdown view package. `MarkdownDocumentBuilder`
+parses with swift-markdown off the main thread and emits one attributed string per run of blocks,
+with a `MarkdownTable` value wherever a table sits, because TextKit 2 cannot lay out tables.
+`MarkdownTextView` is one TextKit 2 `NSTextView` per run; `setAttributedText` replaces only the
+paragraphs from the first one that changed, so a streaming answer lays out a few lines per update.
+`MarkdownLayoutFragment` draws the box behind code, the bar beside a quote and the rule, keyed by
+the `.markdownBlock` attribute. `CodeHighlighter` colours a fenced block once its fence is closed,
+through HighlightSwift, and caches per appearance.
 
-`MarkdownStyle.config` overrides two package defaults: the body font (the default is sized for a
-full-width chat, not a 470 pt panel) and `CodeBlockConfig.theme`, whose `.default` deliberately
-keeps dark code styling in both appearances. `.xcode` resolves light and dark itself.
+Three things here were settled by profiling and are easy to undo by accident:
 
-## Driving the app from a script
+- **`sizingOptions = []` on the panel's root `NSHostingView`.** Otherwise every update re-derives
+  the hosting view's minimum, maximum and intrinsic sizes, which proposes extra widths to every
+  text view, and each new width resizes the container and relays out the whole document.
+- **`widthTracksTextView = false` and `isVerticallyResizable = false`.** SwiftUI sizes the view
+  from `height(fittingWidth:)`. Left to itself the text view resets the container on every frame
+  change, which throws away every fragment's layout, and redraws everything on every resize.
+- **The streaming border is a rasterised gradient rotated as a texture.** Shading a conic gradient
+  through a blur on every frame took a tenth of the main thread while a reply streamed.
 
-The panel is a non-activating window, so Flare is never the frontmost app. A System Events
-`keystroke` goes to whichever app is frontmost, which is usually not Flare: one such keystroke
-posted a prompt into Slack. Drive the panel through accessibility actions aimed at the process
-instead. Set the composer with `set value of <the AXTextField>` and press the send button with
-`click`, both inside `tell process "Flare"`. The send button has no title; find it by its help
-text, `Send (Return)` while idle and `Stop (⌘.)` while a reply streams, which also tells a
-script when the stream has ended. `⌘⇧Space` is safe to send from a script, because it is a
-global hotkey that Flare intercepts before any app sees it.
+Measured on a 400-word reply: the old per-paragraph renderer held one core at 45 to 65 percent
+for the whole stream and climbed with length; this one sits near 20 percent and stays flat.
 
 ## Conventions
 
