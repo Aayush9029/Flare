@@ -18,6 +18,9 @@ struct ToolChip: View {
                     .symbolVariant(isOn ? .fill : .none)
                 Text(title)
                     .font(.callout.weight(.medium))
+                Image(systemName: isOn ? "checkmark" : "plus")
+                    .font(.system(size: 9, weight: .bold))
+                    .opacity(isOn ? 1 : 0.6)
             }
             .foregroundStyle(isOn ? AnyShapeStyle(onForeground) : AnyShapeStyle(.secondary))
             .padding(.horizontal, 12)

@@ -11,6 +11,8 @@ struct AccountPane: View {
     @State private var account: Account?
     @State private var apiKey: String?
     @State private var draftKey = ""
+    @State private var isEditingKey = false
+    @State private var isVerified = false
     @State private var isWorking = false
     @State private var lastErrorMessage: String?
     @State private var showingSignOutConfirmation = false
@@ -173,10 +175,18 @@ struct AccountPane: View {
                     Text("API KEY")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
-                    if let apiKey {
-                        Text(Self.masked(apiKey))
-                            .font(.system(.body, design: .monospaced))
-                            .lineLimit(1)
+                    if let apiKey, !isEditingKey {
+                        // A click on the key opens it for editing.
+                        Button {
+                            draftKey = apiKey
+                            isEditingKey = true
+                        } label: {
+                            Text(Self.masked(apiKey))
+                                .font(.system(.body, design: .monospaced))
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Edit the key")
                     } else {
                         SecureField("sk-…", text: $draftKey)
                             .textFieldStyle(.plain)
@@ -185,28 +195,50 @@ struct AccountPane: View {
                     }
                 }
                 Spacer(minLength: 8)
-                if isWorking { ProgressView().controlSize(.small) }
+                if isWorking {
+                    ProgressView().controlSize(.small)
+                } else if isVerified {
+                    Label("Verified", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.green)
+                }
             }
             .padding(16)
             .cardBand(0)
 
             HStack(spacing: 16) {
-                if apiKey == nil {
+                if apiKey == nil || isEditingKey {
                     prominentButton("SAVE KEY", action: saveDraft)
-                        .disabled(draftKey.trimmingCharacters(in: .whitespaces).isEmpty)
-                    Button("USE SHELL KEY") {
-                        run { apiKey = try auth.importAPIKeyFromEnvironment() }
+                        .disabled(draftKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if isEditingKey {
+                        Button("CANCEL") {
+                            isEditingKey = false
+                            draftKey = ""
+                        }
+                        .buttonStyle(.plain)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    } else {
+                        Button("USE SHELL KEY") {
+                            run {
+                                let key = try auth.importAPIKeyFromEnvironment()
+                                try await auth.verifyAPIKey(key)
+                                apiKey = key
+                                isVerified = true
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .disabled(isWorking)
+                        .help("Reads OPENAI_API_KEY from your login shell")
                     }
-                    .buttonStyle(.plain)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .disabled(isWorking)
-                    .help("Reads OPENAI_API_KEY from your login shell")
                 } else {
                     Button("REMOVE KEY") {
                         run {
                             try auth.clearAPIKey()
                             apiKey = nil
+                            isVerified = false
                         }
                     }
                     .buttonStyle(.plain)
@@ -215,19 +247,26 @@ struct AccountPane: View {
                     .disabled(isWorking)
                 }
                 Spacer()
+                Text(isWorking ? "Checking with OpenAI…" : "")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .padding(16)
             .cardBand(1)
         }
     }
 
+    /// Whitespace from a paste is dropped, then the key must answer a "hi" before it is kept.
     private func saveDraft() {
         let key = draftKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return }
         run {
+            try await auth.verifyAPIKey(key)
             try auth.setAPIKey(key)
             apiKey = key
             draftKey = ""
+            isEditingKey = false
+            isVerified = true
         }
     }
 

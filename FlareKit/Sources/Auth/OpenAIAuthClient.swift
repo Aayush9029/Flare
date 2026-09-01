@@ -57,7 +57,21 @@ public struct OpenAIAuthClient: Sendable {
     public var setAPIKey: @Sendable (String) throws -> Void
     public var clearAPIKey: @Sendable () throws -> Void
     public var importAPIKeyFromEnvironment: @Sendable () throws -> String
+    /// Sends the smallest possible request with the key and reports how the API answers.
+    public var verifyAPIKey: @Sendable (String) async throws -> Void
     public var importFromCodexCLI: @Sendable () async throws -> AuthTokens
+}
+
+public enum APIKeyError: LocalizedError, Equatable {
+    case rejected
+    case failed(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .rejected: "OpenAI rejected that key."
+        case .failed(let message): message
+        }
+    }
 }
 
 extension OpenAIAuthClient: DependencyKey {
@@ -186,6 +200,30 @@ extension OpenAIAuthClient: DependencyKey {
                 let key = try keys.readFromLoginShell()
                 try keys.save(key)
                 return key
+            },
+
+            verifyAPIKey: { key in
+                var request = URLRequest(url: URL(string: "https://api.openai.com/v1/responses")!)
+                request.httpMethod = "POST"
+                request.timeoutInterval = 20
+                request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = try JSONSerialization.data(withJSONObject: [
+                    "model": ChatModelCatalog.titleModel.id,
+                    "input": "hi",
+                    "max_output_tokens": 16,
+                    "store": false,
+                ])
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse else { throw APIKeyError.failed("No response from OpenAI.") }
+                switch http.statusCode {
+                case 200..<300: return
+                case 401: throw APIKeyError.rejected
+                default:
+                    let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                    let message = (body?["error"] as? [String: Any])?["message"] as? String
+                    throw APIKeyError.failed(message ?? "OpenAI returned \(http.statusCode).")
+                }
             },
 
             importFromCodexCLI: {

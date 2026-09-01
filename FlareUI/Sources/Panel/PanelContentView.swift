@@ -30,6 +30,14 @@ public struct PanelContentView: View {
             }
         }
         .animation(.easeOut(duration: 0.2), value: model.presentedReasoning?.id)
+        .blur(radius: model.isModelPickerPresented ? 6 : 0)
+        .overlay {
+            if model.isModelPickerPresented {
+                ModelPickerOverlay(model: model)
+                    .transition(.opacity.combined(with: .offset(y: 12)))
+            }
+        }
+        .animation(.snappy(duration: 0.26), value: model.isModelPickerPresented)
         .background(PanelScrim())
         // The panel has no title bar; any spot that nothing else claims drags it.
         .gesture(WindowDragGesture())

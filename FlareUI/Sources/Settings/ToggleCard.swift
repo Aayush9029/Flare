@@ -3,7 +3,7 @@ import SwiftUI
 struct ToggleCard<Illustration: View>: View {
     let title: String
     let description: String
-    let icon: String
+    var icon: String?
     let isOn: Bool
     var aspectRatio: CGFloat = 2
     let action: () -> Void
@@ -27,12 +27,14 @@ struct ToggleCard<Illustration: View>: View {
                             .fill(.black.opacity(0.05).shadow(.inner(radius: 10, y: 1)))
                     }
                     .overlay(alignment: .topTrailing) {
-                        Image(systemName: icon)
-                            .font(.system(size: 15, weight: .bold))
-                            .symbolRenderingMode(.hierarchical)
-                            .symbolVariant(.fill)
-                            .foregroundStyle(isOn ? .primary : .secondary)
-                            .padding(10)
+                        if let icon {
+                            Image(systemName: icon)
+                                .font(.system(size: 15, weight: .bold))
+                                .symbolRenderingMode(.hierarchical)
+                                .symbolVariant(.fill)
+                                .foregroundStyle(isOn ? .primary : .secondary)
+                                .padding(10)
+                        }
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: radius, style: .continuous)

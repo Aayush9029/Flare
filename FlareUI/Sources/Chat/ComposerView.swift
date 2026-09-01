@@ -33,7 +33,7 @@ struct ComposerView: View {
                         return .handled
                     }
 
-                    ModelChip(preferences: model.preferences)
+                    ModelChip(model: model)
                         .frame(height: 30)
 
                     SendButton(isStreaming: model.isStreaming, canSend: canSend) {
@@ -57,6 +57,9 @@ struct ComposerView: View {
         }
         .onChange(of: model.presentedReasoning?.id) { _, shown in
             if shown == nil { isFocused = true }
+        }
+        .onChange(of: model.isModelPickerPresented) { _, shown in
+            if !shown { isFocused = true }
         }
         // Whatever held focus before, the field takes it back when the panel does,
         // so a hotkey or a click on the panel is enough to start typing.
@@ -94,50 +97,26 @@ private struct ErrorBanner: View {
 }
 
 private struct ModelChip: View {
-    @Bindable var preferences: Preferences
+    let model: FlareModel
 
     var body: some View {
-        Menu {
-            Picker("Model", selection: modelBinding) {
-                ForEach(ChatModelCatalog.all) { option in
-                    Text(option.displayName).tag(option.id)
-                }
-            }
-            .pickerStyle(.inline)
-
-            Picker("Effort", selection: effortBinding) {
-                ForEach(preferences.model.efforts, id: \.self) { effort in
-                    Text(effort.capitalized).tag(effort)
-                }
-            }
-            .pickerStyle(.inline)
+        Button {
+            model.toggleModelPicker()
         } label: {
             HStack(spacing: 4) {
-                Text(preferences.model.shortName)
+                Text(ModelLabel.text(for: model.preferences))
                     .foregroundStyle(.primary)
-                Text(preferences.effectiveEffort.capitalized)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 8, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .font(.caption.weight(.medium))
+            .contentShape(.rect)
         }
-        .accessibilityLabel("Model and reasoning effort")
-        .accessibilityValue("\(preferences.model.displayName), \(preferences.effectiveEffort)")
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-    }
-
-    private var modelBinding: Binding<String> {
-        Binding(
-            get: { preferences.selectedModel },
-            set: { value in preferences.$selectedModel.withLock { $0 = value } }
-        )
-    }
-
-    private var effortBinding: Binding<String> {
-        Binding(
-            get: { preferences.effectiveEffort },
-            set: { value in preferences.$reasoningEffort.withLock { $0 = value } }
-        )
+        .buttonStyle(.plain)
+        .accessibilityLabel("Intelligence")
+        .accessibilityValue(ModelLabel.text(for: model.preferences))
+        .help("Choose how hard the model thinks")
     }
 }
 

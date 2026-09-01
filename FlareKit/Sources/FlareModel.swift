@@ -56,6 +56,7 @@ public final class FlareModel {
     public private(set) var palette = CommandPaletteState()
     /// The message whose reasoning fills the panel, until Escape or the close button.
     public private(set) var presentedReasoning: ChatMessage?
+    public private(set) var isModelPickerPresented = false
 
     @ObservationIgnored private var streamTask: Task<Void, Never>?
     @ObservationIgnored private var searchTask: Task<Void, Never>?
@@ -85,6 +86,14 @@ public final class FlareModel {
         presentedReasoning = message
     }
 
+    public func toggleModelPicker() {
+        isModelPickerPresented.toggle()
+    }
+
+    public func dismissModelPicker() {
+        isModelPickerPresented = false
+    }
+
     public func dismissReasoning() {
         presentedReasoning = nil
     }
@@ -92,6 +101,7 @@ public final class FlareModel {
     public func hide() {
         closePalette()
         presentedReasoning = nil
+        isModelPickerPresented = false
         windowClient.hide()
     }
 

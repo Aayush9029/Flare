@@ -46,6 +46,9 @@ drives the chat with no API key and no metered billing.
   ChatGPT tokens, `api-key` for an API key. **Not the Keychain** — a Keychain ACL is bound to the
   signing identity, so every re-signed debug build lost the token.
 - `importFromCodexCLI` adopts `~/.codex/auth.json` directly, skipping the browser.
+- The license key, its activation and the trial start live in `license.json` beside `auth.json`,
+  also at `0600`. They were in the Keychain, and every re-signed build asked for permission on
+  launch; even a one-time read of the old items asks, so nothing is migrated.
 - Two credentials, and the credential picks the endpoint. An API key wins when present because the
   user set it explicitly: it goes to `https://api.openai.com/v1/responses` and bills per token.
   Otherwise ChatGPT tokens go to `https://chatgpt.com/backend-api/codex/responses` with the headers
@@ -151,7 +154,13 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   panel at once; a restored frame keeps the height it saved.
 - Settings copy stays short: tool toggles are chips ("Web", "Image"), and the Account pane is two
   cards, ChatGPT and API Key. Choosing ChatGPT adopts a Codex CLI session when one exists;
-  choosing API Key reveals the field. The old Automatic value reads as whichever is set up.
+  choosing API Key reveals the field. A pasted key is trimmed and must answer a "hi" through
+  `verifyAPIKey` before it is kept. The old Automatic value reads as whichever is set up.
+- The composer's model chip opens `ModelSlider`, after ChatGPT's picker: five stops
+  (`ModelLevel`, Instant to Pro) that each pair a model with an effort. A pairing set elsewhere
+  that matches no stop shows by name. Escape and a click anywhere else put it away.
+- Resources under `Flare/Resources/` are globbed at `tuist generate` time. A new file such as the
+  `desktop.jpg` wallpaper thumbnail is invisible to the build until the project is regenerated.
 - User messages have no bubble. The muted colour marks the turn, and both sides share one margin.
 - Every message offers **Copy** (Markdown stripped by `MarkdownPlainText`) and **Copy as
   Markdown** (the stored source, verbatim).

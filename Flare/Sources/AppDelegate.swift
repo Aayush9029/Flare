@@ -34,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let model else { return }
             if model.palette.isPresented {
                 model.closePalette()
+            } else if model.isModelPickerPresented {
+                model.dismissModelPicker()
             } else if model.presentedReasoning != nil {
                 model.dismissReasoning()
             } else {

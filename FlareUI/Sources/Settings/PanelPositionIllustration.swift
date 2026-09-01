@@ -13,13 +13,13 @@ struct PanelPositionIllustration: View {
             let inset = screen.width * 0.05
             let panel = CGSize(width: screen.width * 0.2, height: panelHeight(screen: screen, menuBar: menuBar, inset: inset))
             ZStack(alignment: .topLeading) {
-                LinearGradient(
-                    colors: [Color(red: 0.20, green: 0.16, blue: 0.36), Color(red: 0.07, green: 0.05, blue: 0.14)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                DesktopWallpaper.image
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: screen.width, height: screen.height)
+                    .clipped()
                 Rectangle()
-                    .fill(.white.opacity(0.10))
+                    .fill(.ultraThinMaterial)
                     .frame(height: menuBar)
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(.white.opacity(0.85))

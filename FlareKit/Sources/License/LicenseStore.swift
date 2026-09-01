@@ -1,87 +1,94 @@
 import Dependencies
 import DependenciesMacros
 import Foundation
-import Security
 
-/// The license key is the one secret worth Keychain protection: unlike the OAuth
-/// token it is not re-obtainable by signing in again, and a plist is user-editable.
+/// The license key, its activation and the trial start, as a 0600 file beside the
+/// auth tokens. They lived in the Keychain, whose ACL is bound to the signing
+/// identity: every re-signed build asked for permission again on launch. Even a
+/// one-time read of the old items asks, so nothing is migrated.
 @DependencyClient
 public struct LicenseStore: Sendable {
     public var key: @Sendable () -> String?
     public var activationID: @Sendable () -> String?
     public var save: @Sendable (String, String?) throws -> Void
     public var clear: @Sendable () throws -> Void
-    /// First-launch date for the free trial. Kept in the Keychain so deleting
-    /// and reinstalling the app does not silently restart the clock.
     public var trialStart: @Sendable () -> Date?
     public var beginTrial: @Sendable () throws -> Date
 }
 
+struct LicenseFile: Codable, Equatable {
+    var key: String?
+    var activationID: String?
+    var trialStart: Date?
+}
+
 extension LicenseStore: DependencyKey {
-    private static let service = "ca.optimalapps.flare.license"
+    public static let url = URL.applicationSupportDirectory
+        .appending(path: "Flare", directoryHint: .isDirectory)
+        .appending(path: "license.json")
 
     public static let liveValue = Self(
-        key: { read("key") },
-        activationID: { read("activation") },
+        key: { load().key },
+        activationID: { load().activationID },
         save: { key, activationID in
-            try write("key", key)
-            if let activationID { try write("activation", activationID) }
+            var file = load()
+            file.key = key
+            if let activationID { file.activationID = activationID }
+            try write(file)
         },
         clear: {
-            for account in ["key", "activation"] {
-                SecItemDelete([
-                    kSecClass as String: kSecClassGenericPassword,
-                    kSecAttrService as String: service,
-                    kSecAttrAccount as String: account,
-                ] as CFDictionary)
-            }
+            var file = load()
+            file.key = nil
+            file.activationID = nil
+            try write(file)
         },
-        trialStart: { read("trial").flatMap { ISO8601DateFormatter().date(from: $0) } },
+        trialStart: { load().trialStart },
         beginTrial: {
-            if let existing = read("trial"), let date = ISO8601DateFormatter().date(from: existing) {
-                return date
-            }
+            var file = load()
+            if let existing = file.trialStart { return existing }
             let now = Date()
-            try write("trial", ISO8601DateFormatter().string(from: now))
+            file.trialStart = now
+            try write(file)
             return now
         }
     )
 
-    private static func read(_ account: String) -> String? {
-        var query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-        ]
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data
-        else { return nil }
-        return String(data: data, encoding: .utf8)
+    private static let lock = NSLock()
+
+    private static func load() -> LicenseFile {
+        lock.lock(); defer { lock.unlock() }
+        guard let data = try? Data(contentsOf: url), let file = try? decoder.decode(LicenseFile.self, from: data) else {
+            return LicenseFile()
+        }
+        return file
     }
 
-    private static func write(_ account: String, _ value: String) throws {
-        let base: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-        ]
-        let data = Data(value.utf8)
-        let status = SecItemUpdate(base as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        if status == errSecItemNotFound {
-            var query = base
-            query[kSecValueData as String] = data
-            query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            let addStatus = SecItemAdd(query as CFDictionary, nil)
-            guard addStatus == errSecSuccess else {
-                throw NSError(domain: NSOSStatusErrorDomain, code: Int(addStatus))
-            }
-        } else if status != errSecSuccess {
-            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
-        }
+    private static func write(_ file: LicenseFile) throws {
+        lock.lock(); defer { lock.unlock() }
+        try unlockedWrite(file)
     }
+
+    private static func unlockedWrite(_ file: LicenseFile) throws {
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        try encoder.encode(file).write(to: url, options: [.atomic])
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
+
+    private static let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+
+    private static let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
 }
 
 extension LicenseStore: TestDependencyKey {

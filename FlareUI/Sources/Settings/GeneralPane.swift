@@ -47,7 +47,6 @@ struct GeneralPane: View {
                         ToggleCard(
                             title: position.title,
                             description: position.description,
-                            icon: position.symbol,
                             isOn: preferences.panelPosition == position,
                             aspectRatio: 1.45,
                             action: { preferences.$panelPositionRaw.withLock { $0 = position.rawValue } }
@@ -71,7 +70,6 @@ struct GeneralPane: View {
                         ToggleCard(
                             title: size.title,
                             description: size.description,
-                            icon: size.symbol,
                             isOn: preferences.panelSize == size,
                             aspectRatio: 1.45,
                             action: { preferences.$panelSizeRaw.withLock { $0 = size.rawValue } }
@@ -96,7 +94,7 @@ struct GeneralPane: View {
                     Spacer()
                 }
                 .padding(.vertical, 4)
-                Text("What the model may reach for on its own.")
+                Text("Click to turn a tool on or off. The model reaches for them on its own.")
                     .settingFootnote()
             }
 
