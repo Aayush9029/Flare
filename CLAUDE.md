@@ -131,4 +131,12 @@ keeps dark code styling in both appearances. `.xcode` resolves light and dark it
   Markdown** (the stored source, verbatim).
 - `MarkdownRelay` feeds `StreamedMarkdownView` growing snapshots, not deltas, and replays the
   current text to late subscribers so a SwiftUI rebuild does not restart the render.
+- Every assistant row renders through `StreamedMarkdownView` fed by `FlareModel.responseRelay(for:)`,
+  stored messages included. The relay that streamed an answer stays in service after the row is
+  stored, and the live placeholder shares the stored message's id, so the row keeps its identity
+  and its parsed document across the handover. `MarkdownView` starts empty and re-parses on every
+  text change, which made a long answer blink out the moment it finished.
+- The transcript is a plain `VStack` in a `ScrollView`, not a `LazyVStack`: lazy rows estimate the
+  height of the text views underneath and jitter under a bottom anchor. It follows new content only
+  while the reader is at the bottom, so scrolling up to read during a stream is never yanked back.
 - Liquid Glass alone is unreadable over an arbitrary desktop; `PanelScrim` sits under panel content.

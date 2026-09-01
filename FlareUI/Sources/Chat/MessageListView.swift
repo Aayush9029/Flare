@@ -7,7 +7,8 @@ struct MessageListView: View {
     let model: FlareModel
 
     @FetchAll private var messages: [ChatMessage]
-    @Namespace private var bottom
+    @State private var position = ScrollPosition(edge: .bottom)
+    @State private var isPinnedToBottom = true
 
     init(threadID: ChatThread.ID, model: FlareModel) {
         self.threadID = threadID
@@ -19,52 +20,62 @@ struct MessageListView: View {
         )
     }
 
+    /// The stored messages, plus the answer in flight until its stored row arrives.
+    /// Both carry the same id, so the row keeps its identity across the handover.
+    private var entries: [ChatMessage] {
+        guard let live = model.liveMessage, live.threadID == threadID,
+              !messages.contains(where: { $0.id == live.id })
+        else { return messages }
+        return messages + [live]
+    }
+
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 18) {
-                    ForEach(messages) { message in
-                        MessageRow(
-                            role: message.role,
-                            content: message.content,
-                            reasoning: message.reasoning,
-                            showsReasoning: model.preferences.showsReasoning,
-                            source: model.responseSource,
-                            imageFile: message.imageFile
-                        )
-                    }
-
-                    if let response = model.liveResponse, let reasoning = model.liveReasoning {
-                        StreamingMessageRow(
-                            response: response,
-                            reasoning: reasoning,
-                            showsReasoning: model.preferences.showsReasoning,
-                            source: model.responseSource,
-                            citations: model.liveCitations
-                        )
-                    }
-
-                    Color.clear.frame(height: 1).id(bottom)
-                }
-                .padding(20)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .defaultScrollAnchor(.bottom, for: .sizeChanges)
-            .overlay {
-                if messages.isEmpty, !model.isStreaming {
-                    EmptyChatView()
+        ScrollView {
+            // Not lazy: a thread is short, and lazy rows estimate the height of the
+            // text views underneath, which makes a bottom-anchored list jitter.
+            VStack(alignment: .leading, spacing: 18) {
+                ForEach(entries) { message in
+                    MessageRow(message: message, model: model)
                 }
             }
-            .onChange(of: messages.count) { scrollToBottom(proxy) }
-            .onChange(of: model.isStreaming) { scrollToBottom(proxy) }
-            .task(id: threadID) { scrollToBottom(proxy) }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollPosition($position)
+        .defaultScrollAnchor(.bottom)
+        .onScrollGeometryChange(for: ScrollMetrics.self, of: ScrollMetrics.init) { old, new in
+            if new.contentHeight != old.contentHeight {
+                // Content grew or shrank; follow it only if the reader was at the end.
+                if isPinnedToBottom { position.scrollTo(edge: .bottom) }
+            } else {
+                isPinnedToBottom = new.isAtBottom
+            }
+        }
+        .onChange(of: model.isStreaming) { _, isStreaming in
+            if isStreaming { pinToBottom() }
+        }
+        .task(id: threadID) { pinToBottom() }
+        .overlay {
+            if messages.isEmpty, !model.isStreaming {
+                EmptyChatView()
+            }
         }
     }
 
-    private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        withAnimation(.easeOut(duration: 0.2)) {
-            proxy.scrollTo(bottom, anchor: .bottom)
-        }
+    private func pinToBottom() {
+        isPinnedToBottom = true
+        position.scrollTo(edge: .bottom)
+    }
+}
+
+private struct ScrollMetrics: Equatable {
+    let contentHeight: CGFloat
+    let isAtBottom: Bool
+
+    init(_ geometry: ScrollGeometry) {
+        contentHeight = geometry.contentSize.height
+        let visibleBottom = geometry.contentOffset.y + geometry.containerSize.height
+        isAtBottom = visibleBottom >= geometry.contentSize.height - 24
     }
 }
 

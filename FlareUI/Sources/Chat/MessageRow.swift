@@ -4,78 +4,61 @@ import FlareKit
 import SwiftUI
 import SwiftStreamingMarkdown
 
+/// One message, streaming or stored. Assistant text always renders through the
+/// relay the model hands out, so a row is never rebuilt when its answer lands.
 struct MessageRow: View {
-    let role: ChatMessage.Role
-    let content: String
-    let reasoning: String
-    let showsReasoning: Bool
-    let source: String
-    var imageFile: String = ""
+    let message: ChatMessage
+    let model: FlareModel
 
     @Dependency(\.imageStore) private var imageStore
 
+    private var isLatestAnswer: Bool { message.id == model.liveMessage?.id }
+    private var isStreaming: Bool { model.isStreaming && isLatestAnswer }
+
+    private var hasReasoning: Bool {
+        isStreaming ? model.liveHasReasoning : !message.reasoning.isEmpty
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            RoleLabel(role: role, source: source)
+            RoleLabel(role: message.role, source: model.responseSource, isStreaming: isStreaming)
 
-            if showsReasoning, !reasoning.isEmpty {
-                ReasoningDisclosure(text: reasoning)
-            }
-
-            if role == .user {
-                Text(content)
+            if message.role == .user {
+                Text(message.content)
                     .textSelection(.enabled)
                     .padding(10)
                     .background(.primary.opacity(0.07), in: .rect(cornerRadius: 12, style: .continuous))
             } else {
+                if model.preferences.showsReasoning, hasReasoning {
+                    ReasoningDisclosure(relay: model.reasoningRelay(for: message), isStreaming: isStreaming)
+                }
+
                 // The package renders paragraphs through an NSViewRepresentable, which
                 // collapses to zero height unless it is given a definite width.
-                if !content.isEmpty {
-                    MarkdownView(text: content, config: MarkdownStyle.config)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .fixedSize(horizontal: false, vertical: true)
+                StreamedMarkdownView(
+                    source: RelayMarkdownSource(relay: model.responseRelay(for: message)),
+                    config: MarkdownStyle.config
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+
+                if isLatestAnswer, !model.liveCitations.isEmpty {
+                    CitationRow(citations: model.liveCitations)
                 }
-                if let url = imageStore.url(imageFile) {
+                if let url = imageStore.url(message.imageFile) {
                     GeneratedImage(url: url)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contextMenu {
-            Button("Copy") { copy(MarkdownPlainText.from(content)) }
-            Button("Copy as Markdown") { copy(content) }
+            Button("Copy") { copy(MarkdownPlainText.from(markdown)) }
+            Button("Copy as Markdown") { copy(markdown) }
         }
     }
-}
 
-struct StreamingMessageRow: View {
-    let response: MarkdownRelay
-    let reasoning: MarkdownRelay
-    let showsReasoning: Bool
-    let source: String
-    let citations: [Citation]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            RoleLabel(role: .assistant, source: source)
-
-            if showsReasoning {
-                StreamedMarkdownView(source: RelayMarkdownSource(relay: reasoning), config: MarkdownStyle.config)
-                    .id(reasoning.id)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            StreamedMarkdownView(source: RelayMarkdownSource(relay: response), config: MarkdownStyle.config)
-                .id(response.id)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if !citations.isEmpty {
-                CitationRow(citations: citations)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    private var markdown: String {
+        message.role == .user ? message.content : model.responseRelay(for: message).text
     }
 }
 
@@ -155,6 +138,7 @@ struct CitationRow: View {
 private struct RoleLabel: View {
     let role: ChatMessage.Role
     let source: String
+    var isStreaming = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -162,11 +146,14 @@ private struct RoleLabel: View {
                 Text("You")
                     .foregroundStyle(.secondary)
             } else {
-                FlareBolt()
-                    .fill(FlareBolt.gradient)
-                    .frame(width: 8, height: 9)
-                Text("Flare")
-                    .foregroundStyle(FlareBolt.gradient)
+                HStack(spacing: 4) {
+                    FlareBolt()
+                        .fill(FlareBolt.gradient)
+                        .frame(width: 8, height: 9)
+                    Text("Flare")
+                        .foregroundStyle(FlareBolt.gradient)
+                }
+                .shimmer(isActive: isStreaming)
                 Text("·")
                     .foregroundStyle(.tertiary)
                 Text(source)
@@ -177,21 +164,28 @@ private struct RoleLabel: View {
     }
 }
 
+/// Open while the model is still reasoning, folded away once the answer lands.
 private struct ReasoningDisclosure: View {
-    let text: String
+    let relay: MarkdownRelay
+    let isStreaming: Bool
     @State private var isExpanded = false
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
-            Text(text)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            StreamedMarkdownView(
+                source: RelayMarkdownSource(relay: relay),
+                config: MarkdownStyle.reasoningConfig
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
         } label: {
             Text("Reasoning")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
+        }
+        .onAppear { isExpanded = isStreaming }
+        .onChange(of: isStreaming) { _, streaming in
+            withAnimation(.easeInOut(duration: 0.25)) { isExpanded = streaming }
         }
     }
 }

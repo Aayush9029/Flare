@@ -17,6 +17,13 @@ public final class MarkdownRelay: Identifiable, @unchecked Sendable {
         state.withLock { $0.text = text }
     }
 
+    /// A relay that replays `text` once and ends, for content that is already complete.
+    public static func finished(_ text: String) -> MarkdownRelay {
+        let relay = MarkdownRelay(text: text)
+        relay.finish()
+        return relay
+    }
+
     public var text: String {
         state.withLock { $0.text }
     }

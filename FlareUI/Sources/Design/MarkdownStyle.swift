@@ -17,6 +17,15 @@ enum MarkdownStyle {
         )
     )
 
+    /// Reasoning summaries sit under the answer in a quieter, smaller voice.
+    static let reasoningConfig = MarkdownRenderConfig(
+        headingStyle: headingStyle,
+        paragraphStyle: MarkdownRenderConfig.MarkdownTextStyle(textFonts: fonts(size: 12, lineHeight: 17), textColor: .secondary),
+        inlineStyle: inlineStyle,
+        codeBlockConfig: CodeBlockConfig(theme: .xcode, backgroundColor: Color.primary.opacity(0.06)),
+        blockSpacing: 6
+    )
+
     private static let body = fonts(size: 13.5, lineHeight: 21)
 
     /// The package sizes links and inline code from its own typography, which

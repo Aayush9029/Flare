@@ -22,7 +22,7 @@ public final class FlareModel {
     public var statusPlaceholder: String {
         if isGeneratingImage { return "Drawing…" }
         if isSearchingWeb { return "Searching the web…" }
-        return isStreaming ? "Thinking…" : "Ask anything"
+        return isStreaming ? "Responding…" : "Ask anything"
     }
 
     /// Which credential answers right now, shown next to the assistant name.
@@ -44,6 +44,11 @@ public final class FlareModel {
     public private(set) var isSearchingWeb = false
     public private(set) var isGeneratingImage = false
     public private(set) var liveCitations: [Citation] = []
+    /// The answer being streamed, or the last one that landed. The transcript keeps
+    /// this row until the stored message arrives, so the answer never blinks out.
+    public private(set) var liveMessage: ChatMessage?
+    public private(set) var liveHasReasoning = false
+    @ObservationIgnored private var relays: [ChatMessage.ID: MessageRelays] = [:]
 
     public private(set) var palette = CommandPaletteState()
 
@@ -223,6 +228,9 @@ public final class FlareModel {
         }
 
         liveCitations = []
+        let messageID = ChatMessage.ID(uuid())
+        liveMessage = ChatMessage(id: messageID, threadID: threadID, role: .assistant, createdAt: now)
+        liveHasReasoning = false
         let response = MarkdownRelay()
         let reasoning = MarkdownRelay()
         liveResponse = response
@@ -230,11 +238,16 @@ public final class FlareModel {
         isStreaming = true
 
         streamTask = Task { [weak self] in
-            await self?.runStream(threadID: threadID, response: response, reasoning: reasoning)
+            await self?.runStream(threadID: threadID, messageID: messageID, response: response, reasoning: reasoning)
         }
     }
 
-    private func runStream(threadID: ChatThread.ID, response: MarkdownRelay, reasoning: MarkdownRelay) async {
+    private func runStream(
+        threadID: ChatThread.ID,
+        messageID: ChatMessage.ID,
+        response: MarkdownRelay,
+        reasoning: MarkdownRelay
+    ) async {
         func endStream() {
             response.finish()
             reasoning.finish()
@@ -277,7 +290,9 @@ public final class FlareModel {
             for try await event in events {
                 switch event {
                 case .outputTextDelta(let delta): response.append(delta)
-                case .reasoningSummaryDelta(let delta): reasoning.append(delta)
+                case .reasoningSummaryDelta(let delta):
+                    reasoning.append(delta)
+                    if !liveHasReasoning { liveHasReasoning = true }
                 case .imageGenerationStarted: isGeneratingImage = true
                 case .image(let data):
                     isGeneratingImage = false
@@ -297,11 +312,12 @@ public final class FlareModel {
 
         let text = response.text
         guard !text.isEmpty || !imageFile.isEmpty else {
+            liveMessage = nil
             endStream()
             return
         }
         let assistantMessage = ChatMessage(
-            id: ChatMessage.ID(uuid()),
+            id: messageID,
             threadID: threadID,
             role: .assistant,
             content: text,
@@ -315,6 +331,8 @@ public final class FlareModel {
                 try ChatThread.find(threadID).update { $0.updatedAt = now }.execute(db)
             }
         }
+        relays[messageID] = MessageRelays(response: response, reasoning: reasoning)
+        liveMessage = assistantMessage
         endStream()
 
         await generateTitleIfNeeded(threadID, prompt: turns.last?.text ?? "", answer: text)
@@ -322,6 +340,29 @@ public final class FlareModel {
 
     public func stopStreaming() {
         cancelStreaming()
+    }
+
+    /// The relay behind a message's Markdown view. The relay that streamed an answer
+    /// stays in service once it is stored, so the view that rendered it keeps its
+    /// parsed document instead of starting over from the saved text.
+    public func responseRelay(for message: ChatMessage) -> MarkdownRelay {
+        if message.id == liveMessage?.id, let liveResponse { return liveResponse }
+        return storedRelays(for: message).response
+    }
+
+    public func reasoningRelay(for message: ChatMessage) -> MarkdownRelay {
+        if message.id == liveMessage?.id, let liveReasoning { return liveReasoning }
+        return storedRelays(for: message).reasoning
+    }
+
+    private func storedRelays(for message: ChatMessage) -> MessageRelays {
+        if let cached = relays[message.id] { return cached }
+        let created = MessageRelays(
+            response: .finished(message.content),
+            reasoning: .finished(message.reasoning)
+        )
+        relays[message.id] = created
+        return created
     }
 
     private func cancelStreaming() {
@@ -416,4 +457,9 @@ public struct CommandPaletteState: Equatable, Sendable {
         let next = (current + offset + hits.count) % hits.count
         highlighted = hits[next].id
     }
+}
+
+private struct MessageRelays {
+    let response: MarkdownRelay
+    let reasoning: MarkdownRelay
 }
