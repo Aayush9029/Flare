@@ -12,7 +12,7 @@ concurrency:
 env:
   SCHEME: Flare
   APP_NAME: Flare
-  TEAM_ID: 6Q29HJZ4AG
+  TEAM_ID: 4538W4A79B
   RELEASES_REPO: Aayush9029/releases
 
 jobs:
@@ -62,7 +62,6 @@ jobs:
       - name: Import signing certificate
         env:
           CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
         run: |
           KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
@@ -72,8 +71,9 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
+          # The shared Developer ID identity carries an empty export password.
           echo "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
-          security import "$RUNNER_TEMP/certificate.p12" -P "$CERTIFICATE_PASSWORD" \
+          security import "$RUNNER_TEMP/certificate.p12" -P "" \
             -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -157,6 +157,8 @@ jobs:
         run: |
           spctl --assess --type open --context context:primary-signature -vv "$DMG_PATH"
           codesign --verify --deep --strict --verbose=2 "$RUNNER_TEMP/export/$APP_NAME.app"
+          xcrun stapler validate "$RUNNER_TEMP/export/$APP_NAME.app"
+          xcrun stapler validate "$DMG_PATH"
 
       - name: Publish to the releases repo
         env:

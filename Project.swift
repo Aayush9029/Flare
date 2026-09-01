@@ -15,7 +15,7 @@ let project = Project(
             "MARKETING_VERSION": "0.1.0",
             "CURRENT_PROJECT_VERSION": "1",
             "CODE_SIGN_STYLE": "Automatic",
-            "DEVELOPMENT_TEAM": "6Q29HJZ4AG",
+            "DEVELOPMENT_TEAM": "4538W4A79B",
         ]
     ),
     targets: [

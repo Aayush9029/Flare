@@ -4,50 +4,45 @@ Every push to `main` runs `.github/workflows/release.yml`. The workflow builds,
 tests, signs, notarizes, makes a DMG, and publishes a release to
 `Aayush9029/releases`.
 
+## Signing
+
+Flare uses the shared OSS identity, the same one that signs Breeze and Compose:
+
+- Identity: `Developer ID Application: Aayush Pokharel (4538W4A79B)`
+- Team: `4538W4A79B`
+- API key: `KDZQQND374`, issuer `32b44455-4bec-4cb8-8fbf-eb06754dda95`
+
+The credentials live in `~/Secure/secrets/apple-dev/` and never enter this repo.
+See the `oss-macos-release` skill for the full pipeline.
+
+Team `6Q29HJZ4AG` cannot sign a Mac app for distribution outside the App Store.
+It holds only an iPhone Distribution certificate, and the App Store Connect API
+refuses to create a Developer ID certificate for it, because only the Account
+Holder can do that in the web portal.
+
 ## Secrets
 
-| Secret | Status | Value |
-|---|---|---|
-| `ASC_API_KEY_P8` | set | base64 of the Optimal Life App Store Connect key |
-| `ASC_API_KEY_ID` | set | `27TQ78XRSX` |
-| `ASC_API_ISSUER_ID` | set | `dbe9e3f9-9c90-4472-b041-5f360ee3dc7c` |
-| `RELEASES_TOKEN` | set | token that can create releases in `Aayush9029/releases` |
-| `CERTIFICATE_P12` | missing | base64 of the Developer ID Application identity |
-| `CERTIFICATE_PASSWORD` | missing | password for that `.p12` |
+| Secret | Source |
+|---|---|
+| `CERTIFICATE_P12` | `~/Secure/secrets/apple-dev/certificate_p12_base64.txt` |
+| `ASC_API_KEY_P8` | `~/Secure/secrets/apple-dev/api_key_p8_base64.txt` |
+| `ASC_API_KEY_ID` | `KDZQQND374` |
+| `ASC_API_ISSUER_ID` | `32b44455-4bec-4cb8-8fbf-eb06754dda95` |
+| `RELEASES_TOKEN` | token that can create releases in `Aayush9029/releases` |
 
-## The remaining step
+The `.p12` carries an empty export password, so the workflow passes `-P ""` and
+there is no password secret.
 
-Team `6Q29HJZ4AG` holds only an iPhone Distribution certificate, which cannot
-sign a Mac app for distribution outside the App Store. The App Store Connect
-API refuses to create a Developer ID certificate:
-
-```
-This request is forbidden for security reasons:
-This operation can only be performed by the Account Holder.
-```
-
-Only the Account Holder can create one, in the web portal. A certificate signing
-request is already prepared, so no keychain export is needed.
-
-1. Open https://developer.apple.com/account/resources/certificates/add as the
-   Optimal Life Account Holder.
-2. Choose **Developer ID Application**, then **G2 Sub-CA**.
-3. Upload `~/.flare-signing/devid.csr`.
-4. Download the certificate.
-5. Run:
-
-   ```bash
-   ~/.flare-signing/finish-signing.sh ~/Downloads/developerID_application.cer
-   ```
-
-The script pairs the certificate with the private key that made the request,
-builds a `.p12`, sets both secrets, and imports the identity into the login
-keychain for local signing.
-
-Then start a release:
+To reset them:
 
 ```bash
-gh workflow run Release --repo Aayush9029/Flare
+gh secret set CERTIFICATE_P12 --repo Aayush9029/Flare \
+  < ~/Secure/secrets/apple-dev/certificate_p12_base64.txt
+gh secret set ASC_API_KEY_P8 --repo Aayush9029/Flare \
+  < ~/Secure/secrets/apple-dev/api_key_p8_base64.txt
+gh secret set ASC_API_KEY_ID --repo Aayush9029/Flare --body KDZQQND374
+gh secret set ASC_API_ISSUER_ID --repo Aayush9029/Flare \
+  --body 32b44455-4bec-4cb8-8fbf-eb06754dda95
 ```
 
 ## Versioning
@@ -55,3 +50,9 @@ gh workflow run Release --repo Aayush9029/Flare
 `MARKETING_VERSION` in `Project.swift` sets the release version. The build
 number is the workflow run number, so it always climbs. Tags take the form
 `v<marketing>+<run>`.
+
+## Starting a release
+
+```bash
+gh workflow run Release --repo Aayush9029/Flare
+```
