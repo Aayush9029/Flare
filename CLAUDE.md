@@ -182,7 +182,8 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   text change, which made a long answer blink out the moment it finished.
 - Reasoning renders in `ReasoningView` as a card after Grok's: a header with the elapsed time
   over a short window that follows the newest lines while summaries stream, then only the header,
-  "Thought for Ns", once answer text starts. A click fills the panel with `ThoughtsView`; Escape
+  "Thought for Ns", once answer text starts. A click unfolds thoughts of up to 80 words under
+  the card; longer ones, and thoughts still arriving, fill the panel with `ThoughtsView`. Escape
   or its close button returns to the chat, which stays alive underneath at zero opacity. The
   summaries title their sections with a bold line of their own, which the reasoning theme sets as
   a heading.
