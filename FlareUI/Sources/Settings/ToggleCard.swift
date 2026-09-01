@@ -5,6 +5,7 @@ struct ToggleCard<Illustration: View>: View {
     let description: String
     let icon: String
     let isOn: Bool
+    var aspectRatio: CGFloat = 2
     let action: () -> Void
     @ViewBuilder let illustration: Illustration
 
@@ -18,7 +19,7 @@ struct ToggleCard<Illustration: View>: View {
         VStack(spacing: 10) {
             Button(action: action) {
                 illustration
-                    .aspectRatio(2, contentMode: .fit)
+                    .aspectRatio(aspectRatio, contentMode: .fit)
                     .frame(maxWidth: .infinity)
                     .clipShape(.rect(cornerRadius: radius, style: .continuous))
                     .overlay {

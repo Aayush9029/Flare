@@ -8,8 +8,8 @@ struct PanelPositionIllustration: View {
     var body: some View {
         GeometryReader { proxy in
             let size = proxy.size
-            let panel = CGSize(width: size.width * 0.28, height: size.height * 0.52)
-            let inset: CGFloat = size.width * 0.06
+            let panel = CGSize(width: size.width * 0.2, height: size.height * 0.46)
+            let inset: CGFloat = size.width * 0.05
             ZStack(alignment: .topLeading) {
                 LinearGradient(
                     colors: [Color(red: 0.20, green: 0.16, blue: 0.36), Color(red: 0.07, green: 0.05, blue: 0.14)],

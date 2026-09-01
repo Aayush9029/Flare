@@ -49,6 +49,7 @@ struct GeneralPane: View {
                             description: position.description,
                             icon: position.symbol,
                             isOn: preferences.panelPosition == position,
+                            aspectRatio: 1.45,
                             action: { preferences.$panelPositionRaw.withLock { $0 = position.rawValue } }
                         ) {
                             PanelPositionIllustration(position: position)
