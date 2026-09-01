@@ -45,6 +45,10 @@ public extension SharedReaderKey where Self == AppStorageKey<Bool>.Default {
         Self[.appStorage("newThreadOnOpen"), default: false]
     }
 
+    static var remembersPanelPosition: Self {
+        Self[.appStorage("remembersPanelPosition"), default: true]
+    }
+
     static var hasAppliedDefaultLoginItem: Self {
         Self[.appStorage("hasAppliedDefaultLoginItem"), default: false]
     }

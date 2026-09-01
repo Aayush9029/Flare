@@ -14,6 +14,7 @@ public final class Preferences {
     @ObservationIgnored @Shared(.imagesEnabled) public var imagesEnabled: Bool
     @ObservationIgnored @Shared(.staysOnTop) public var staysOnTop: Bool
     @ObservationIgnored @Shared(.newThreadOnOpen) public var newThreadOnOpen: Bool
+    @ObservationIgnored @Shared(.remembersPanelPosition) public var remembersPanelPosition: Bool
     @ObservationIgnored @Shared(.hasAppliedDefaultLoginItem) public var hasAppliedDefaultLoginItem: Bool
 
     public nonisolated static let defaultSystemPrompt = """

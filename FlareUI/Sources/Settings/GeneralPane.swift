@@ -47,6 +47,9 @@ struct GeneralPane: View {
                 Toggle("Float on top", isOn: Binding(preferences.$staysOnTop))
                 Text("Keeps the panel above other windows and stops it closing when it loses focus. Escape and the hotkey still close it.")
                     .settingFootnote()
+                Toggle("Remember position", isOn: Binding(preferences.$remembersPanelPosition))
+                Text("Drag the panel anywhere and it reopens where you left it. Off, it opens on the screen with the pointer.")
+                    .settingFootnote()
                 Picker("When Flare opens", selection: Binding(preferences.$newThreadOnOpen)) {
                     Text("Resume the last chat").tag(false)
                     Text("Start a new chat").tag(true)

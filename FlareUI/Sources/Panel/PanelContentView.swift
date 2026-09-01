@@ -20,6 +20,8 @@ public struct PanelContentView: View {
             ComposerView(model: model)
         }
         .background(PanelScrim())
+        // The panel has no title bar; any spot that nothing else claims drags it.
+        .gesture(WindowDragGesture())
         .overlay(alignment: .top) {
             if model.palette.isPresented {
                 CommandPaletteView(model: model)

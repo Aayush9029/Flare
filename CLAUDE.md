@@ -127,6 +127,10 @@ keeps dark code styling in both appearances. `.xcode` resolves light and dark it
   `keyboardShortcut`: a focused `TextField` swallows the key first.
 - The panel hides when it resigns key, with three exemptions: a tracking `NSMenu` (the model
   picker lives inside the panel), a key Settings window, and the "Float on top" preference.
+- The panel drags from any spot nothing else claims (`WindowDragGesture` on the content) and
+  autosaves its frame under `FlarePanel`. The autosave name is set after the first placement, not
+  at creation: naming at creation saves the empty starting frame, and the first show restores that
+  corner instead of the pointer's screen. "Remember position" in General turns the restore off.
 - Every message offers **Copy** (Markdown stripped by `MarkdownPlainText`) and **Copy as
   Markdown** (the stored source, verbatim).
 - `MarkdownRelay` feeds `StreamedMarkdownView` growing snapshots, not deltas, and replays the

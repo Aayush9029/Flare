@@ -10,6 +10,7 @@ public struct WindowClient: Sendable {
     public var setResignHandler: @MainActor @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
     public var setCancelHandler: @MainActor @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
     public var setStaysOnTop: @MainActor @Sendable (Bool) -> Void
+    public var setRemembersPosition: @MainActor @Sendable (Bool) -> Void
     public var showSettings: @MainActor @Sendable (_ content: NSView) -> Void
 }
 
@@ -24,6 +25,7 @@ extension WindowClient: DependencyKey {
             setResignHandler: { handler in PanelHost.shared.onResign = handler },
             setCancelHandler: { handler in PanelHost.shared.setCancelHandler(handler) },
             setStaysOnTop: { PanelHost.shared.staysOnTop = $0 },
+            setRemembersPosition: { PanelHost.shared.remembersPosition = $0 },
             showSettings: { content in PanelHost.shared.showSettings(content) }
         )
     }
@@ -39,6 +41,7 @@ extension WindowClient: TestDependencyKey {
         setResignHandler: { _ in },
         setCancelHandler: { _ in },
         setStaysOnTop: { _ in },
+        setRemembersPosition: { _ in },
         showSettings: { _ in }
     )
 }
@@ -84,9 +87,11 @@ private final class PanelHost: NSObject, NSWindowDelegate {
     var onResign: (@MainActor @Sendable () -> Void)?
     private var isMenuTracking = false
     var staysOnTop = false
+    var remembersPosition = true
 
     private let panelSize = NSSize(width: 470, height: 660)
     private let radius: CGFloat = 20
+    private let frameName = "FlarePanel"
 
     func createPanel(_ content: NSView) {
         let panel = FlarePanel(
@@ -132,7 +137,12 @@ private final class PanelHost: NSObject, NSWindowDelegate {
 
     func show() {
         guard let panel else { return }
-        if !panel.isVisible { reposition() }
+        if !panel.isVisible {
+            if !(remembersPosition && panel.setFrameUsingName(frameName)) { reposition() }
+            // Named only now: naming the panel at creation would save its empty
+            // starting frame, and the first show would restore that instead.
+            panel.setFrameAutosaveName(frameName)
+        }
         panel.makeKeyAndOrderFront(nil)
         panel.invalidateShadow()
     }

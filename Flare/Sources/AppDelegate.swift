@@ -50,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setUpStatusItem(model: model)
         applyDockPreference(model: model)
         applyStaysOnTop(model: model)
+        applyRemembersPosition(model: model)
     }
 
     private func setUpStatusItem(model: FlareModel) {
@@ -99,6 +100,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 guard let self, let model = self.model else { return }
                 self.applyStaysOnTop(model: model)
+            }
+        }
+    }
+
+    private func applyRemembersPosition(model: FlareModel) {
+        withObservationTracking {
+            windowClient.setRemembersPosition(model.preferences.remembersPanelPosition)
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self, let model = self.model else { return }
+                self.applyRemembersPosition(model: model)
             }
         }
     }
