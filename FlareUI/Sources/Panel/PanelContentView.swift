@@ -10,6 +10,8 @@ public struct PanelContentView: View {
         self.onOpenSettings = onOpenSettings
     }
 
+    @State private var isDropTargeted = false
+
     public var body: some View {
         VStack(spacing: 0) {
             if let threadID = model.selectedThreadID {
@@ -19,6 +21,20 @@ public struct PanelContentView: View {
             }
             ComposerView(model: model)
         }
+        .onDrop(of: [.image, .fileURL], isTargeted: $isDropTargeted) { providers in
+            ImageDrop.load(providers) { model.addAttachment($0) }
+        }
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 5]))
+                    .foregroundStyle(.secondary)
+                    .padding(10)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: isDropTargeted)
         // Hidden, not removed, while the thoughts fill the panel: the transcript
         // keeps its text views and scroll position for the way back.
         .opacity(model.presentedReasoning == nil ? 1 : 0)

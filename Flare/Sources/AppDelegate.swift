@@ -51,6 +51,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in model?.toggle() }
         }
 
+        // The composer's field editor takes Command-V first and drops anything that
+        // is not text, so image pastes are caught before dispatch.
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak model] event in
+            guard let model, event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                  event.charactersIgnoringModifiers == "v",
+                  event.window is NSPanel
+            else { return event }
+            let images = ImageDrop.pasteboardImages()
+            guard !images.isEmpty else { return event }
+            images.forEach(model.addAttachment)
+            return nil
+        }
+
         // Without this the licence is only resolved when the License pane appears,
         // so a licensed user is locked out until they open Settings.
         Task { await model.license.start() }

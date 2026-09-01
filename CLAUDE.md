@@ -160,7 +160,16 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   (`ModelLevel`, Instant to Pro) that each pair a model with an effort. A pairing set elsewhere
   that matches no stop shows by name. Escape and a click anywhere else put it away.
 - Resources under `Flare/Resources/` are globbed at `tuist generate` time. A new file such as the
-  `desktop.jpg` wallpaper thumbnail is invisible to the build until the project is regenerated.
+  `desktop-light.jpg` and `desktop-dark.jpg` wallpaper thumbnails is invisible to the build until
+  the project is regenerated.
+- Images reach the composer by drop on the panel or by paste. The composer's field editor takes
+  Command-V first and drops anything that is not text, so `AppDelegate` catches an image paste in
+  a local key monitor and hands it to `FlareModel.addAttachment`. `ImageDrop` keeps PNG and JPEG
+  under 1600 points as they are and re-encodes the rest as JPEG. Attachments go out as
+  `input_image` data URLs and are stored on the user message as `|`-separated names in
+  `imageFile`, which `MessageRow` shows as thumbnails and later turns re-send.
+- `PanelScrim` sits at 30 percent black and 42 percent white: enough to read prose over a busy
+  desktop, thin enough that the glass still shows.
 - User messages have no bubble. The muted colour marks the turn, and both sides share one margin.
 - Every message offers **Copy** (Markdown stripped by `MarkdownPlainText`) and **Copy as
   Markdown** (the stored source, verbatim).

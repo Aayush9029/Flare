@@ -6,6 +6,8 @@ struct PanelPositionIllustration: View {
     var position: PanelPosition = .bottomRight
     var size: PanelSize = .compact
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         GeometryReader { proxy in
             let screen = proxy.size
@@ -13,7 +15,7 @@ struct PanelPositionIllustration: View {
             let inset = screen.width * 0.05
             let panel = CGSize(width: screen.width * 0.2, height: panelHeight(screen: screen, menuBar: menuBar, inset: inset))
             ZStack(alignment: .topLeading) {
-                DesktopWallpaper.image
+                DesktopWallpaper.image(for: colorScheme)
                     .resizable()
                     .scaledToFill()
                     .frame(width: screen.width, height: screen.height)

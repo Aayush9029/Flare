@@ -58,15 +58,46 @@ public enum ResponsesAPI {
         public var role: String
         public var content: [Content]
 
-        public init(role: String, text: String) {
+        public init(role: String, text: String, images: [Data] = []) {
             self.role = role
-            self.content = [Content(type: role == "assistant" ? "output_text" : "input_text", text: text)]
+            var parts: [Content] = []
+            if !text.isEmpty || images.isEmpty {
+                parts.append(Content(type: role == "assistant" ? "output_text" : "input_text", text: text))
+            }
+            if role != "assistant" {
+                for image in images {
+                    parts.append(Content(type: "input_image", imageURL: "data:\(Self.mimeType(of: image));base64,\(image.base64EncodedString())"))
+                }
+            }
+            self.content = parts
+        }
+
+        static func mimeType(of data: Data) -> String {
+            let head = [UInt8](data.prefix(12))
+            if head.starts(with: [0x89, 0x50, 0x4E, 0x47]) { return "image/png" }
+            if head.starts(with: [0xFF, 0xD8, 0xFF]) { return "image/jpeg" }
+            if head.starts(with: [0x47, 0x49, 0x46]) { return "image/gif" }
+            if head.count >= 12, head[8...11] == [0x57, 0x45, 0x42, 0x50] { return "image/webp" }
+            return "image/png"
         }
     }
 
     public struct Content: Encodable {
         public var type: String
-        public var text: String
+        public var text: String?
+        public var imageURL: String?
+
+        public init(type: String, text: String? = nil, imageURL: String? = nil) {
+            self.type = type
+            self.text = text
+            self.imageURL = imageURL
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case type
+            case text
+            case imageURL = "image_url"
+        }
     }
 }
 

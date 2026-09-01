@@ -25,9 +25,20 @@ struct MessageRow: View {
 
             if message.role == .user {
                 // No bubble: the muted colour marks the turn, and both sides share one margin.
-                Text(message.content)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+                if !message.content.isEmpty {
+                    Text(message.content)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+                let attached = message.imageFile.split(separator: "|").compactMap { imageStore.url(String($0)) }
+                if !attached.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(attached, id: \.self) { url in
+                            GeneratedImage(url: url)
+                                .frame(maxWidth: 160, maxHeight: 160)
+                        }
+                    }
+                }
             } else {
                 if model.preferences.showsReasoning, hasReasoning {
                     ReasoningView(message: message, model: model)

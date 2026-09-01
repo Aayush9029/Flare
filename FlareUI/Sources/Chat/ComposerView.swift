@@ -14,6 +14,10 @@ struct ComposerView: View {
                 ErrorBanner(message: errorMessage) { model.errorMessage = nil }
             }
 
+            if !model.attachments.isEmpty {
+                AttachmentStrip(model: model)
+            }
+
             GlassEffectContainer(spacing: 10) {
                 HStack(alignment: .center, spacing: 10) {
                     TextField(
@@ -48,6 +52,9 @@ struct ComposerView: View {
             }
         }
         .padding(16)
+        .onPasteCommand(of: [.image, .fileURL]) { providers in
+            ImageDrop.load(providers) { model.addAttachment($0) }
+        }
         .onAppear { isFocused = true }
         .task(id: model.selectedThreadID) { isFocused = true }
         // Cancelling the palette leaves the thread unchanged, so nothing else
@@ -71,7 +78,7 @@ struct ComposerView: View {
     }
 
     private var canSend: Bool {
-        !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !model.attachments.isEmpty
     }
 }
 

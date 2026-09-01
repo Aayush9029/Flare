@@ -111,6 +111,24 @@ struct SendTests {
         }
     }
 
+    @Test("Attached images travel with the message and clear afterwards")
+    func attachmentsGoWithTheMessage() async throws {
+        let model = makeModel()
+        await model.license.start()
+        try await withDependencies(from: model) {
+            model.newThread()
+            model.addAttachment(Data([0x89, 0x50, 0x4E, 0x47]))
+            model.send()
+            try await settle(model)
+
+            let stored = try messages(model)
+            let user = try #require(stored.first { $0.role == .user })
+            #expect(user.imageFile == "test.png", "the image store's name is kept on the message")
+            #expect(user.content.isEmpty)
+            #expect(model.attachments.isEmpty)
+        }
+    }
+
     @Test("The composer unlocks as soon as the answer lands")
     func streamStateClearsWithTheAnswer() async throws {
         let model = makeModel()

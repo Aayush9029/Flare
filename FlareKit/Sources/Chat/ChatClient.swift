@@ -6,9 +6,12 @@ import os
 public struct ChatTurn: Sendable, Equatable {
     public var role: String
     public var text: String
-    public init(role: String, text: String) {
+    /// Encoded image files a user turn carries, sent as `input_image` parts.
+    public var images: [Data]
+    public init(role: String, text: String, images: [Data] = []) {
         self.role = role
         self.text = text
+        self.images = images
     }
 }
 
@@ -93,7 +96,7 @@ extension ChatClient: DependencyKey {
                 let payload = ResponsesAPI.Request(
                     model: model,
                     instructions: instructions,
-                    input: turns.map { ResponsesAPI.Item(role: $0.role, text: $0.text) },
+                    input: turns.map { ResponsesAPI.Item(role: $0.role, text: $0.text, images: $0.images) },
                     reasoning: effort.map(ResponsesAPI.Reasoning.init(effort:)),
                     tools: tools
                 )

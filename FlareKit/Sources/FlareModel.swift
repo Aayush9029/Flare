@@ -36,6 +36,8 @@ public final class FlareModel {
 
     public var selectedThreadID: ChatThread.ID?
     public var draft = ""
+    /// Images dropped or pasted into the composer, sent with the next message.
+    public private(set) var attachments: [Data] = []
     public var errorMessage: String?
 
     public private(set) var liveResponse: MarkdownRelay?
@@ -230,9 +232,18 @@ public final class FlareModel {
         }
     }
 
+    public func addAttachment(_ image: Data) {
+        attachments.append(image)
+    }
+
+    public func removeAttachment(at index: Int) {
+        guard attachments.indices.contains(index) else { return }
+        attachments.remove(at: index)
+    }
+
     public func send() {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty, !isStreaming else { return }
+        guard !prompt.isEmpty || !attachments.isEmpty, !isStreaming else { return }
         guard license.isUnlocked else {
             errorMessage = "Your free trial has ended. Open Settings to buy Flare for $9.99."
             return
@@ -246,7 +257,18 @@ public final class FlareModel {
         draft = ""
         errorMessage = nil
 
-        let userMessage = ChatMessage(id: ChatMessage.ID(uuid()), threadID: threadID, role: .user, content: prompt, createdAt: now)
+        let imageFiles = attachments.compactMap { image in
+            withErrorReporting { try imageStore.save(image) }
+        }
+        attachments = []
+        let userMessage = ChatMessage(
+            id: ChatMessage.ID(uuid()),
+            threadID: threadID,
+            role: .user,
+            content: prompt,
+            imageFile: imageFiles.joined(separator: "|"),
+            createdAt: now
+        )
         withErrorReporting {
             try database.write { db in
                 try ChatMessage.insert { userMessage }.execute(db)
@@ -289,13 +311,20 @@ public final class FlareModel {
 
         var imageFile = ""
         let turns: [ChatTurn]
+        let imageStore = imageStore
         do {
             turns = try await database.read { db in
                 try ChatMessage
                     .where { $0.threadID.eq(threadID) }
                     .order { $0.createdAt.asc() }
                     .fetchAll(db)
-                    .map { ChatTurn(role: $0.role.rawValue, text: $0.content) }
+                    .map { message in
+                        ChatTurn(
+                            role: message.role.rawValue,
+                            text: message.content,
+                            images: message.role == .user ? Self.attachedImages(of: message, in: imageStore) : []
+                        )
+                    }
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -377,6 +406,13 @@ public final class FlareModel {
 
     public func stopStreaming() {
         cancelStreaming()
+    }
+
+    /// The files a user message carries, `|`-separated in `imageFile`.
+    public nonisolated static func attachedImages(of message: ChatMessage, in store: ImageStore) -> [Data] {
+        message.imageFile.split(separator: "|").compactMap { name in
+            store.url(String(name)).flatMap { try? Data(contentsOf: $0) }
+        }
     }
 
     /// The relay behind a message's Markdown view. The relay that streamed an answer
