@@ -16,13 +16,18 @@ final class MarkdownDocumentModel {
     @ObservationIgnored private var isDark = false
     @ObservationIgnored private var buildTask: Task<Void, Never>?
     @ObservationIgnored private var needsBuild = false
+    @ObservationIgnored private var isRunning = false
 
     init(relay: MarkdownRelay, theme: MarkdownTheme) {
         self.relay = relay
         self.theme = theme
     }
 
+    /// Idempotent: two views may share one model, and only one subscription is wanted.
     func run(isDark: Bool) async {
+        guard !isRunning else { return }
+        isRunning = true
+        defer { isRunning = false }
         self.isDark = isDark
         for await snapshot in relay.stream() {
             latestText = snapshot

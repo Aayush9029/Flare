@@ -1,3 +1,4 @@
+import AppKit
 import FlareKit
 import SwiftUI
 
@@ -53,6 +54,13 @@ struct ComposerView: View {
         // would hand first responder back to the field.
         .onChange(of: model.palette.isPresented) { _, shown in
             if !shown { isFocused = true }
+        }
+        // Whatever held focus before, the field takes it back when the panel does,
+        // so a hotkey or a click on the panel is enough to start typing.
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { note in
+            guard note.object is NSPanel else { return }
+            isFocused = false
+            DispatchQueue.main.async { isFocused = true }
         }
     }
 

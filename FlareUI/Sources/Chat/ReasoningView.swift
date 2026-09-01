@@ -12,9 +12,18 @@ struct ReasoningView: View {
 
     @State private var isExpanded = false
     @State private var userToggled = false
+    @State private var document: MarkdownDocumentModel
 
-    private static let peekHeight: CGFloat = 96
+    private static let peekHeight: CGFloat = 72
     private static let radius: CGFloat = 12
+
+    init(relay: MarkdownRelay, isThinking: Bool, startedAt: Date?, seconds: Double) {
+        self.relay = relay
+        self.isThinking = isThinking
+        self.startedAt = startedAt
+        self.seconds = seconds
+        _document = State(initialValue: MarkdownDocumentModel(relay: relay, theme: .reasoning))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -51,20 +60,33 @@ struct ReasoningView: View {
                     .transition(.opacity)
             } else if isThinking {
                 Divider().opacity(0.5)
-                reasoning
-                    .frame(maxHeight: Self.peekHeight, alignment: .bottom)
-                    .clipped()
-                    .mask {
-                        LinearGradient(
-                            stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.4)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
+                // Older lines soften as well as fade: a blurred copy of the same
+                // model sits over the top of the sharp one.
+                ZStack(alignment: .bottom) {
+                    reasoning
+                    reasoning
+                        .blur(radius: 2.5)
+                        .mask {
+                            LinearGradient(
+                                stops: [.init(color: .black, location: 0), .init(color: .clear, location: 0.65)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        }
+                }
+                .frame(maxHeight: Self.peekHeight, alignment: .bottom)
+                .clipped()
+                .mask {
+                    LinearGradient(
+                        stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.45)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .allowsHitTesting(false)
+                .transition(.opacity)
             }
         }
         .background(.primary.opacity(0.045), in: .rect(cornerRadius: Self.radius, style: .continuous))
@@ -80,7 +102,7 @@ struct ReasoningView: View {
     }
 
     private var reasoning: some View {
-        MarkdownMessageView(relay: relay, theme: .reasoning)
+        MarkdownMessageView(document: document)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 

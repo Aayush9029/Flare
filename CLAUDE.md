@@ -137,6 +137,8 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
 - The panel has no toolbar and no sidebar by design. Navigation is `⌘K`; dismissal is the
   hotkey again or Escape. Escape is handled in `FlarePanel.cancelOperation`, not a SwiftUI
   `keyboardShortcut`: a focused `TextField` swallows the key first.
+- The composer takes focus whenever the panel becomes key, whatever held it before, so the hotkey
+  or a click on the panel is enough to start typing.
 - The panel hides when it resigns key, with three exemptions: a tracking `NSMenu` (the model
   picker lives inside the panel), a key Settings window, and the "Float on top" preference.
 - The panel drags from any spot nothing else claims (`WindowDragGesture` on the content) and

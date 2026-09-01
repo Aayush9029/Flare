@@ -10,6 +10,11 @@ struct MarkdownMessageView: View {
         _document = State(initialValue: MarkdownDocumentModel(relay: relay, theme: theme))
     }
 
+    /// Renders a model another view owns, so two renderings of one text share a build.
+    init(document: MarkdownDocumentModel) {
+        _document = State(initialValue: document)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(document.segments) { segment in
