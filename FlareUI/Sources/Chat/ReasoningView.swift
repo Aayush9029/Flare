@@ -3,15 +3,19 @@ import SwiftUI
 
 /// The model's reasoning as a card, after Grok's: a header with the elapsed time
 /// over muted lines that follow the newest text while it thinks, then only the
-/// header once the answer starts. A click opens the thoughts across the panel.
+/// header once the answer starts. A click opens short thoughts in place and long
+/// ones across the panel.
 struct ReasoningView: View {
     let message: ChatMessage
     let model: FlareModel
 
     @State private var document: MarkdownDocumentModel
+    @State private var isOpenInline = false
 
     private static let peekHeight: CGFloat = 72
     private static let radius: CGFloat = 12
+    /// Up to this many words the thoughts fit under the card without a scroll.
+    private static let inlineWordLimit = 80
 
     init(message: ChatMessage, model: FlareModel) {
         self.message = message
@@ -21,11 +25,20 @@ struct ReasoningView: View {
 
     private var timing: ReasoningTiming { ReasoningTiming(message: message, model: model) }
 
+    private var isShort: Bool {
+        document.relay.text.split(whereSeparator: \.isWhitespace).count <= Self.inlineWordLimit
+    }
+
     var body: some View {
         let timing = timing
+        let opensInline = !timing.isThinking && isShort
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                model.showReasoning(for: message)
+                if opensInline {
+                    withAnimation(.easeInOut(duration: 0.22)) { isOpenInline.toggle() }
+                } else {
+                    model.showReasoning(for: message)
+                }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "lightbulb")
@@ -36,19 +49,26 @@ struct ReasoningView: View {
                         .foregroundStyle(.secondary)
                         .shimmer(isActive: timing.isThinking)
                     Spacer(minLength: 8)
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    Image(systemName: opensInline ? "chevron.right" : "arrow.up.left.and.arrow.down.right")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(opensInline && isOpenInline ? 90 : 0))
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Open reasoning")
-            .help("Read the thoughts")
+            .accessibilityLabel(opensInline ? (isOpenInline ? "Hide reasoning" : "Show reasoning") : "Open reasoning")
+            .help(opensInline ? "Show the thoughts" : "Read the thoughts")
 
-            if timing.isThinking {
+            if opensInline, isOpenInline {
+                Divider().opacity(0.5)
+                reasoning
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .transition(.opacity)
+            } else if timing.isThinking {
                 Divider().opacity(0.5)
                 // Older lines soften as well as fade: a blurred copy of the same
                 // model sits over the top of the sharp one.
