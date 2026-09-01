@@ -54,6 +54,8 @@ public final class FlareModel {
     @ObservationIgnored private var relays: [ChatMessage.ID: MessageRelays] = [:]
 
     public private(set) var palette = CommandPaletteState()
+    /// The message whose reasoning fills the panel, until Escape or the close button.
+    public private(set) var presentedReasoning: ChatMessage?
 
     @ObservationIgnored private var streamTask: Task<Void, Never>?
     @ObservationIgnored private var searchTask: Task<Void, Never>?
@@ -79,8 +81,17 @@ public final class FlareModel {
         windowClient.show()
     }
 
+    public func showReasoning(for message: ChatMessage) {
+        presentedReasoning = message
+    }
+
+    public func dismissReasoning() {
+        presentedReasoning = nil
+    }
+
     public func hide() {
         closePalette()
+        presentedReasoning = nil
         windowClient.hide()
     }
 

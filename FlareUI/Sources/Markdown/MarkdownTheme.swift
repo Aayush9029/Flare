@@ -14,6 +14,8 @@ struct MarkdownTheme: @unchecked Sendable {
 
     static let answer = MarkdownTheme(bodySize: 13.5, lineSpacing: 4.5, blockSpacing: 10, textColor: .labelColor, codeSize: 12.5)
     static let reasoning = MarkdownTheme(bodySize: 12, lineSpacing: 3, blockSpacing: 6, textColor: .secondaryLabelColor, codeSize: 11.5, boldLinesAreTitles: true)
+    /// Reasoning read on its own, across the panel: answer-sized, still muted.
+    static let thoughts = MarkdownTheme(bodySize: 13, lineSpacing: 4, blockSpacing: 8, textColor: .secondaryLabelColor, codeSize: 12, boldLinesAreTitles: true)
 
     var body: NSFont { .systemFont(ofSize: bodySize) }
     var bold: NSFont { .systemFont(ofSize: bodySize, weight: .semibold) }

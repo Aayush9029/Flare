@@ -18,6 +18,10 @@ public extension SharedReaderKey where Self == AppStorageKey<String>.Default {
     static var credentialPreference: Self {
         Self[.appStorage("credentialPreference"), default: CredentialPreference.automatic.rawValue]
     }
+
+    static var panelPosition: Self {
+        Self[.appStorage("panelPosition"), default: PanelPosition.bottomRight.rawValue]
+    }
 }
 
 public extension SharedReaderKey where Self == AppStorageKey<Bool>.Default {

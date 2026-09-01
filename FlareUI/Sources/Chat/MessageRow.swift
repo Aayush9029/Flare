@@ -18,18 +18,6 @@ struct MessageRow: View {
         (isLatestAnswer && model.liveHasReasoning) || !message.reasoning.isEmpty
     }
 
-    /// Reasoning is still arriving and no answer text has started.
-    private var isThinking: Bool {
-        isStreaming && model.liveReasoningStartedAt != nil && model.liveReasoningEndedAt == nil
-    }
-
-    private var reasoningSeconds: Double {
-        if message.reasoningSeconds > 0 { return message.reasoningSeconds }
-        if isLatestAnswer, let start = model.liveReasoningStartedAt, let end = model.liveReasoningEndedAt {
-            return end.timeIntervalSince(start)
-        }
-        return 0
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -42,12 +30,7 @@ struct MessageRow: View {
                     .background(.primary.opacity(0.07), in: .rect(cornerRadius: 12, style: .continuous))
             } else {
                 if model.preferences.showsReasoning, hasReasoning {
-                    ReasoningView(
-                        relay: model.reasoningRelay(for: message),
-                        isThinking: isThinking,
-                        startedAt: isLatestAnswer ? model.liveReasoningStartedAt : nil,
-                        seconds: reasoningSeconds
-                    )
+                    ReasoningView(message: message, model: model)
                 }
 
                 MarkdownMessageView(relay: model.responseRelay(for: message), theme: .answer)

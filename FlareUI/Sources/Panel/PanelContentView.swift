@@ -19,6 +19,17 @@ public struct PanelContentView: View {
             }
             ComposerView(model: model)
         }
+        // Hidden, not removed, while the thoughts fill the panel: the transcript
+        // keeps its text views and scroll position for the way back.
+        .opacity(model.presentedReasoning == nil ? 1 : 0)
+        .allowsHitTesting(model.presentedReasoning == nil)
+        .overlay {
+            if let message = model.presentedReasoning {
+                ThoughtsView(message: message, model: model)
+                    .transition(.scale(scale: 0.98).combined(with: .opacity))
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: model.presentedReasoning?.id)
         .background(PanelScrim())
         // The panel has no title bar; any spot that nothing else claims drags it.
         .gesture(WindowDragGesture())

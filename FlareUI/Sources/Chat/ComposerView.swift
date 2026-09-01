@@ -55,6 +55,9 @@ struct ComposerView: View {
         .onChange(of: model.palette.isPresented) { _, shown in
             if !shown { isFocused = true }
         }
+        .onChange(of: model.presentedReasoning?.id) { _, shown in
+            if shown == nil { isFocused = true }
+        }
         // Whatever held focus before, the field takes it back when the panel does,
         // so a hotkey or a click on the panel is enough to start typing.
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { note in

@@ -34,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let model else { return }
             if model.palette.isPresented {
                 model.closePalette()
+            } else if model.presentedReasoning != nil {
+                model.dismissReasoning()
             } else {
                 model.hide()
             }
@@ -55,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applyDockPreference(model: model)
         applyStaysOnTop(model: model)
         applyRemembersPosition(model: model)
+        applyPanelPosition(model: model)
     }
 
     private func setUpStatusItem(model: FlareModel) {
@@ -115,6 +118,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 guard let self, let model = self.model else { return }
                 self.applyRemembersPosition(model: model)
+            }
+        }
+    }
+
+    private func applyPanelPosition(model: FlareModel) {
+        withObservationTracking {
+            windowClient.setPosition(model.preferences.panelPosition)
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self, let model = self.model else { return }
+                self.applyPanelPosition(model: model)
             }
         }
     }

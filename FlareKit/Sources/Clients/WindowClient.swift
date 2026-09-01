@@ -12,6 +12,7 @@ public struct WindowClient: Sendable {
     public var setCancelHandler: @MainActor @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
     public var setStaysOnTop: @MainActor @Sendable (Bool) -> Void
     public var setRemembersPosition: @MainActor @Sendable (Bool) -> Void
+    public var setPosition: @MainActor @Sendable (PanelPosition) -> Void
     public var showSettings: @MainActor @Sendable (_ content: NSView) -> Void
 }
 
@@ -28,6 +29,7 @@ extension WindowClient: DependencyKey {
             setCancelHandler: { handler in PanelHost.shared.setCancelHandler(handler) },
             setStaysOnTop: { PanelHost.shared.staysOnTop = $0 },
             setRemembersPosition: { PanelHost.shared.remembersPosition = $0 },
+            setPosition: { PanelHost.shared.position = $0 },
             showSettings: { content in PanelHost.shared.showSettings(content) }
         )
     }
@@ -45,6 +47,7 @@ extension WindowClient: TestDependencyKey {
         setCancelHandler: { _ in },
         setStaysOnTop: { _ in },
         setRemembersPosition: { _ in },
+        setPosition: { _ in },
         showSettings: { _ in }
     )
 }
@@ -91,6 +94,7 @@ private final class PanelHost: NSObject, NSWindowDelegate {
     private var isMenuTracking = false
     var staysOnTop = false
     var remembersPosition = true
+    var position = PanelPosition.bottomRight
 
     private let panelSize = NSSize(width: 470, height: 660)
     private let radius: CGFloat = 20
@@ -162,11 +166,18 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         guard let screen else { return }
         let visible = screen.visibleFrame
         let size = panel.frame.size
-        // Bottom-right of the screen under the pointer, a hand's width in from the
-        // edges. Clamped so a short display or an enlarged panel stays on screen.
+        // Clamped so a short display or an enlarged panel stays on screen.
         let gap: CGFloat = 16
-        let x = max(visible.maxX - size.width - gap, visible.minX)
-        let y = min(max(visible.minY + gap, visible.minY), visible.maxY - size.height)
+        let origin: NSPoint = switch position {
+        case .bottomLeft:
+            NSPoint(x: visible.minX + gap, y: visible.minY + gap)
+        case .bottomRight:
+            NSPoint(x: visible.maxX - size.width - gap, y: visible.minY + gap)
+        case .center:
+            NSPoint(x: visible.midX - size.width / 2, y: visible.minY + visible.height * 0.62 - size.height / 2)
+        }
+        let x = min(max(origin.x, visible.minX), max(visible.maxX - size.width, visible.minX))
+        let y = min(max(origin.y, visible.minY), max(visible.maxY - size.height, visible.minY))
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 

@@ -144,7 +144,9 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
 - The panel drags from any spot nothing else claims (`WindowDragGesture` on the content) and
   autosaves its frame under `FlarePanel`. The autosave name is set after the first placement, not
   at creation: naming at creation saves the empty starting frame, and the first show restores that
-  corner instead of the pointer's screen. "Remember position" in General turns the restore off.
+  corner instead of the pointer's screen. "Restore last position" in General turns the restore off.
+  Without a frame to restore, `PanelPosition` (bottom left, bottom right, center) chosen in the
+  Position cards decides where it opens, 16 points in from the edges.
 - Every message offers **Copy** (Markdown stripped by `MarkdownPlainText`) and **Copy as
   Markdown** (the stored source, verbatim).
 - `MarkdownRelay` feeds `StreamedMarkdownView` growing snapshots, not deltas, and replays the
@@ -156,8 +158,12 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   text change, which made a long answer blink out the moment it finished.
 - Reasoning renders in `ReasoningView` as a card after Grok's: a header with the elapsed time
   over a short window that follows the newest lines while summaries stream, then only the header,
-  "Thought for Ns", once answer text starts, opened by a click. The summaries title their sections
-  with a bold line of their own, which the reasoning theme sets as a heading. Thinking runs from the first reasoning delta to the first answer delta and is stored
+  "Thought for Ns", once answer text starts. A click fills the panel with `ThoughtsView`; Escape
+  or its close button returns to the chat, which stays alive underneath at zero opacity. The
+  summaries title their sections with a bold line of their own, which the reasoning theme sets as
+  a heading.
+- Escape resolves in order: close the palette, close the thoughts, hide the panel
+  (`setCancelHandler` in `AppDelegate`). Thinking runs from the first reasoning delta to the first answer delta and is stored
   in `chatMessages.reasoningSeconds`; zero means unknown and the header falls back to "Reasoning".
 - The transcript is a plain `VStack` in a `ScrollView`, not a `LazyVStack`: lazy rows estimate the
   height of the text views underneath and jitter under a bottom anchor. It follows new content only

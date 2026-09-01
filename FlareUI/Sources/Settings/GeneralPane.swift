@@ -41,14 +41,34 @@ struct GeneralPane: View {
                 }
             }
 
+            Section("Position") {
+                HStack(alignment: .top, spacing: 14) {
+                    ForEach(PanelPosition.allCases) { position in
+                        ToggleCard(
+                            title: position.title,
+                            description: position.description,
+                            icon: position.symbol,
+                            isOn: preferences.panelPosition == position,
+                            action: { preferences.$panelPositionRaw.withLock { $0 = position.rawValue } }
+                        ) {
+                            PanelPositionIllustration(position: position)
+                        }
+                    }
+                }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 6)
+                .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+
+                Toggle("Restore last position", isOn: Binding(preferences.$remembersPanelPosition))
+                Text("Drag the panel anywhere and it reopens where you left it. Off, it opens at the spot above every time.")
+                    .settingFootnote()
+            }
+
             Section("Panel") {
                 Toggle("Search the web when it helps", isOn: Binding(preferences.$webSearchEnabled))
                 Toggle("Generate images when asked", isOn: Binding(preferences.$imagesEnabled))
                 Toggle("Float on top", isOn: Binding(preferences.$staysOnTop))
                 Text("Keeps the panel above other windows and stops it closing when it loses focus. Escape and the hotkey still close it.")
-                    .settingFootnote()
-                Toggle("Remember position", isOn: Binding(preferences.$remembersPanelPosition))
-                Text("Drag the panel anywhere and it reopens where you left it. Off, it opens on the screen with the pointer.")
                     .settingFootnote()
                 Picker("When Flare opens", selection: Binding(preferences.$newThreadOnOpen)) {
                     Text("Resume the last chat").tag(false)
