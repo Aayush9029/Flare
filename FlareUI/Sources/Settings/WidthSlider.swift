@@ -1,10 +1,13 @@
+import Dependencies
 import FlareKit
 import SwiftUI
 
-/// The panel's width on the same track as the model picker.
+/// The panel's width on the same track as the model picker. While the knob is in
+/// hand the ghost on the desktop follows it.
 struct WidthSlider: View {
     @Bindable var preferences: Preferences
 
+    @Dependency(\.windowClient) private var windowClient
     @State private var preview: Int?
 
     private let widths = PanelSize.widths
@@ -30,12 +33,16 @@ struct WidthSlider: View {
                 tint: [Color(red: 0.30, green: 0.62, blue: 1.0), Color(red: 0.15, green: 0.48, blue: 0.98)]
             ) { stop in
                 preview = stop
+                windowClient.previewWidth(stop.map { widths[$0] })
             } onCommit: { stop in
                 preferences.$panelWidth.withLock { $0 = Int(widths[stop]) }
             }
             .accessibilityElement()
             .accessibilityLabel("Panel width")
             .accessibilityValue("\(preferences.panelWidth) points")
+        }
+        .onHover { hovering in
+            windowClient.tintGhost(hovering ? .width : .standard)
         }
     }
 

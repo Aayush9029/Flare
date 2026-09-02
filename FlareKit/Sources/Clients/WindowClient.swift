@@ -15,7 +15,16 @@ public struct WindowClient: Sendable {
     public var setPosition: @MainActor @Sendable (PanelPosition) -> Void
     public var setSize: @MainActor @Sendable (PanelSize) -> Void
     public var setWidth: @MainActor @Sendable (CGFloat) -> Void
+    /// A width the ghost shows while a slider knob is still in hand; nil once let go.
+    public var previewWidth: @MainActor @Sendable (CGFloat?) -> Void
+    /// The ghost's border takes the colour of the control under the pointer.
+    public var tintGhost: @MainActor @Sendable (GhostTint) -> Void
     public var showSettings: @MainActor @Sendable (_ content: NSView) -> Void
+}
+
+public enum GhostTint: Sendable {
+    case standard
+    case width
 }
 
 extension WindowClient: DependencyKey {
@@ -34,6 +43,8 @@ extension WindowClient: DependencyKey {
             setPosition: { PanelHost.shared.position = $0 },
             setSize: { PanelHost.shared.setSize($0) },
             setWidth: { PanelHost.shared.setWidth($0) },
+            previewWidth: { PanelHost.shared.previewWidth($0) },
+            tintGhost: { PanelHost.shared.tintGhost($0) },
             showSettings: { content in PanelHost.shared.showSettings(content) }
         )
     }
@@ -54,6 +65,8 @@ extension WindowClient: TestDependencyKey {
         setPosition: { _ in },
         setSize: { _ in },
         setWidth: { _ in },
+        previewWidth: { _ in },
+        tintGhost: { _ in },
         showSettings: { _ in }
     )
 }
@@ -101,10 +114,10 @@ private final class PanelHost: NSObject, NSWindowDelegate {
     var staysOnTop = false
     var remembersPosition = true
     var position = PanelPosition.bottomRight {
-        didSet { if oldValue != position { showPlacementPreview() } }
+        didSet { if oldValue != position { updateGhost() } }
     }
-    private var preview: NSWindow?
-    private var previewHide: DispatchWorkItem?
+    private var ghost: NSWindow?
+    private var ghostWidth: CGFloat?
     private var size = PanelSize.compact
     private var width = PanelSize.defaultWidth
     private var hasAppliedSize = false
@@ -177,7 +190,7 @@ private final class PanelHost: NSObject, NSWindowDelegate {
             return
         }
         reposition()
-        showPlacementPreview()
+        updateGhost()
     }
 
     func setWidth(_ width: CGFloat) {
@@ -188,51 +201,72 @@ private final class PanelHost: NSObject, NSWindowDelegate {
             return
         }
         reposition()
-        showPlacementPreview()
+        updateGhost()
     }
 
-    /// An outline where the panel would open, for a moment, while a Settings choice
-    /// changes. Nothing to click: it ignores the mouse and fades on its own.
-    private func showPlacementPreview() {
-        // Centered, the outline would sit over the Settings window itself.
-        guard position != .center, let screen = screenUnderPointer() else { return }
-        let frame = placementFrame(on: screen)
-        let window = preview ?? makePreviewWindow()
-        window.setFrame(frame, display: true, animate: window.isVisible)
-        window.alphaValue = 1
-        window.orderFrontRegardless()
-        previewHide?.cancel()
-        let hide = DispatchWorkItem { [weak window] in
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.35
-                window?.animator().alphaValue = 0
-            } completionHandler: {
-                window?.orderOut(nil)
-            }
+    // MARK: Ghost
+
+    func previewWidth(_ width: CGFloat?) {
+        ghostWidth = width
+        updateGhost()
+    }
+
+    func tintGhost(_ tint: GhostTint) {
+        (ghost?.contentView as? GhostPanelView)?.tint = tint
+    }
+
+    /// While Settings has the keyboard, the panel itself steps aside and a ghost of
+    /// it floats above every window where it would open: translucent, bordered, deaf
+    /// to the mouse, and thin enough to read Settings through.
+    private func settingsDidBecomeKey() {
+        if let panel, panel.isVisible {
+            panel.orderOut(nil)
+            onResign?()
         }
-        previewHide = hide
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6, execute: hide)
+        updateGhost()
     }
 
-    private func makePreviewWindow() -> NSWindow {
+    private func settingsDidResignKey() {
+        ghost?.orderOut(nil)
+    }
+
+    /// Called from `windowDidBecomeKey`, where AppKit has not yet raised the window's
+    /// key flag, so visibility is the test; resign and close take the ghost down.
+    private func updateGhost() {
+        guard let settingsWindow, settingsWindow.isVisible,
+              let screen = settingsWindow.screen ?? screenUnderPointer()
+        else { return }
+        let window = ghost ?? makeGhost()
+        let frame = placementFrame(on: screen, width: ghostWidth ?? width)
+        if window.isVisible {
+            window.setFrame(frame, display: true, animate: true)
+        } else {
+            window.setFrame(frame, display: true)
+            window.orderFrontRegardless()
+        }
+    }
+
+    private func makeGhost() -> NSWindow {
         let window = NSWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false
         window.ignoresMouseEvents = true
         window.level = .floating
+        window.alphaValue = 0.5
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
-        window.contentView = PlacementOutlineView()
-        preview = window
+        window.animationBehavior = .none
+        window.contentView = GhostPanelView(cornerRadius: radius)
+        ghost = window
         return window
     }
 
     /// The frame `reposition()` would give the panel on this screen.
-    private func placementFrame(on screen: NSScreen) -> NSRect {
+    private func placementFrame(on screen: NSScreen, width: CGFloat? = nil) -> NSRect {
         let visible = screen.visibleFrame
         let minimum = panel?.minSize.height ?? 420
         let frame = NSSize(
-            width: min(self.width, visible.width - 32),
+            width: min(width ?? self.width, visible.width - 32),
             height: self.size.height(in: visible.height, minimum: minimum)
         )
         let gap: CGFloat = 16
@@ -277,6 +311,7 @@ private final class PanelHost: NSObject, NSWindowDelegate {
             defer: false
         )
         window.title = "Flare Settings"
+        window.delegate = self
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .visible
         window.isMovableByWindowBackground = true
@@ -290,28 +325,63 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func windowDidBecomeKey(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === settingsWindow else { return }
+        settingsDidBecomeKey()
+    }
+
     func windowDidResignKey(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow, window === panel else { return }
-        guard !isMenuTracking else { return }
+        guard let window = notification.object as? NSWindow else { return }
+        if window === settingsWindow {
+            settingsDidResignKey()
+            return
+        }
+        guard window === panel, !isMenuTracking else { return }
         // Pinned: the user asked the panel to survive losing focus.
         guard !staysOnTop else { return }
-        // Opening Settings from inside the panel steals key status; hiding there
-        // would also discard the untouched thread the user was about to use.
+        // Settings taking the keyboard hides the panel itself, in settingsDidBecomeKey.
         guard settingsWindow?.isKeyWindow != true else { return }
         hide()
         onResign?()
     }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === settingsWindow else { return }
+        ghost?.orderOut(nil)
+    }
 }
 
-/// A rounded outline with a faint fill, drawn in the accent colour.
-private final class PlacementOutlineView: NSView {
-    override func draw(_ dirtyRect: NSRect) {
-        let rect = bounds.insetBy(dx: 2, dy: 2)
-        let path = NSBezierPath(roundedRect: rect, xRadius: 20, yRadius: 20)
-        NSColor.controlAccentColor.withAlphaComponent(0.10).setFill()
-        path.fill()
-        NSColor.controlAccentColor.setStroke()
-        path.lineWidth = 2
-        path.stroke()
+/// A see-through stand-in for the panel: the same glass and corners, a border, no content.
+private final class GhostPanelView: NSVisualEffectView {
+    var tint = GhostTint.standard {
+        didSet { applyTint() }
+    }
+
+    init(cornerRadius: CGFloat) {
+        super.init(frame: .zero)
+        material = .hudWindow
+        blendingMode = .behindWindow
+        state = .active
+        wantsLayer = true
+        layer?.cornerRadius = cornerRadius
+        layer?.cornerCurve = .continuous
+        layer?.masksToBounds = true
+        applyTint()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyTint()
+    }
+
+    private func applyTint() {
+        let color: NSColor = switch tint {
+        case .standard: .controlAccentColor
+        case .width: NSColor(red: 0.22, green: 0.55, blue: 1.0, alpha: 1)
+        }
+        layer?.borderWidth = tint == .standard ? 1.5 : 2.5
+        layer?.borderColor = color.withAlphaComponent(0.95).cgColor
     }
 }

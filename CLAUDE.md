@@ -151,9 +151,12 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   Without a frame to restore, `PanelPosition` (bottom left, bottom right, center) chosen in the
   Position cards decides where it opens, 16 points in from the edges, `PanelSize` (compact, half,
   full) how tall, with 12 points kept clear under the menu bar, and the Width slider how wide
-  (`panelWidth`, 420 to 720 in five stops). A change resizes the panel at once, and flashes an
-  accent outline where the panel would open, a mouse-transparent window that fades after 1.6 s,
-  except for Center, where it would cover Settings. A restored frame keeps the size it saved.
+  (`panelWidth`, 420 to 720 in five stops). A change resizes the panel at once. While Settings has
+  the keyboard the panel itself hides and a ghost of it floats above every window where it would
+  open: translucent, bordered, mouse-transparent, following every change, tracking the width
+  knob while it is in hand, bordered in the slider's blue while the pointer is over it, and
+  leaving with Settings. `windowDidBecomeKey` arrives before AppKit raises the window's key
+  flag, so the ghost's guard tests visibility, not key status. A restored frame keeps the size it saved.
 - Settings copy stays short: tool toggles are chips ("Web", "Image"), and the Account pane is two
   cards, ChatGPT and API Key. Choosing ChatGPT adopts a Codex CLI session when one exists;
   choosing API Key reveals the field. A pasted key is trimmed and must answer a "hi" through
