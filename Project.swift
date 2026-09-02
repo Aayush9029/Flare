@@ -12,7 +12,7 @@ let project = Project(
     settings: .settings(
         base: [
             "SWIFT_VERSION": "6.0",
-            "MARKETING_VERSION": "0.2.1",
+            "MARKETING_VERSION": "0.3.0",
             "CURRENT_PROJECT_VERSION": "1",
             "CODE_SIGN_STYLE": "Automatic",
             "DEVELOPMENT_TEAM": "4538W4A79B",
