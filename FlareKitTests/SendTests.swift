@@ -129,6 +129,45 @@ struct SendTests {
         }
     }
 
+    @Test("A message sent while a reply streams waits its turn, then goes")
+    func queuedMessageFollows() async throws {
+        let model = makeModel()
+        await model.license.start()
+        try await withDependencies(from: model) {
+            model.newThread()
+            model.draft = "first"
+            model.send()
+            #expect(model.isStreaming)
+            model.draft = "second"
+            model.send()
+            #expect(model.queuedForCurrentThread.map(\.text) == ["second"], "the second waits while the first streams")
+            #expect(model.draft.isEmpty)
+            try await settle(model)
+
+            let stored = try messages(model)
+            #expect(stored.filter { $0.role == .user }.map(\.content) == ["first", "second"])
+            #expect(stored.filter { $0.role == .assistant }.count == 2)
+            #expect(model.queue.isEmpty)
+        }
+    }
+
+    @Test("Removing from the queue drops the message")
+    func queueRemoval() async throws {
+        let model = makeModel()
+        await model.license.start()
+        try await withDependencies(from: model) {
+            model.newThread()
+            model.draft = "first"
+            model.send()
+            model.draft = "second"
+            model.send()
+            let queued = try #require(model.queuedForCurrentThread.first)
+            model.removeFromQueue(queued.id)
+            try await settle(model)
+            #expect(try messages(model).filter { $0.role == .user }.count == 1)
+        }
+    }
+
     @Test("The composer unlocks as soon as the answer lands")
     func streamStateClearsWithTheAnswer() async throws {
         let model = makeModel()

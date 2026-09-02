@@ -14,6 +14,10 @@ struct ComposerView: View {
                 ErrorBanner(message: errorMessage) { model.errorMessage = nil }
             }
 
+            if !model.queuedForCurrentThread.isEmpty {
+                QueueView(model: model)
+            }
+
             if !model.attachments.isEmpty {
                 AttachmentStrip(model: model)
             }
@@ -41,7 +45,12 @@ struct ComposerView: View {
                         .frame(height: 30)
 
                     SendButton(isStreaming: model.isStreaming, canSend: canSend) {
-                        model.isStreaming ? model.stopStreaming() : model.send()
+                        // Streaming with text typed, the button queues; empty, it stops.
+                        if model.isStreaming, !canSend {
+                            model.stopStreaming()
+                        } else {
+                            model.send()
+                        }
                     }
                 }
                 .padding(.leading, 16)
@@ -134,14 +143,15 @@ private struct SendButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: isStreaming ? "stop.fill" : "arrow.up")
+            Image(systemName: isStreaming ? (canSend ? "text.line.first.and.arrowtriangle.forward" : "stop.fill") : "arrow.up")
                 .font(.system(size: 12, weight: .bold))
                 .frame(width: 24, height: 24)
+                .contentTransition(.symbolEffect(.replace))
         }
-        .accessibilityLabel(isStreaming ? "Stop generating" : "Send message")
+        .accessibilityLabel(isStreaming ? (canSend ? "Add to queue" : "Stop generating") : "Send message")
         .buttonStyle(.glassProminent)
         .buttonBorderShape(.circle)
         .disabled(!isStreaming && !canSend)
-        .help(isStreaming ? "Stop (⌘.)" : "Send (Return)")
+        .help(isStreaming ? (canSend ? "Queue (Return) · Stop (⌘.)" : "Stop (⌘.)") : "Send (Return)")
     }
 }

@@ -38,6 +38,12 @@ public final class FlareModel {
     public var draft = ""
     /// Images dropped or pasted into the composer, sent with the next message.
     public private(set) var attachments: [Data] = []
+    /// Messages sent while a reply was streaming. They go out in order as replies finish.
+    public private(set) var queue: [QueuedMessage] = []
+
+    public var queuedForCurrentThread: [QueuedMessage] {
+        queue.filter { $0.threadID == selectedThreadID }
+    }
     public var errorMessage: String?
 
     public private(set) var liveResponse: MarkdownRelay?
@@ -243,24 +249,50 @@ public final class FlareModel {
 
     public func send() {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty || !attachments.isEmpty, !isStreaming else { return }
+        guard !prompt.isEmpty || !attachments.isEmpty, let threadID = selectedThreadID else { return }
+        if isStreaming {
+            queue.append(QueuedMessage(id: uuid(), threadID: threadID, text: prompt, attachments: attachments))
+            draft = ""
+            attachments = []
+            return
+        }
+        // Cleared only once the send is under way, so a refused send keeps the text.
+        guard dispatch(prompt: prompt, attachments: attachments, threadID: threadID) else { return }
+        draft = ""
+        attachments = []
+    }
+
+    public func removeFromQueue(_ id: UUID) {
+        queue.removeAll { $0.id == id }
+    }
+
+    /// Sends the next queued message for the current thread, if nothing is streaming.
+    public func sendNextQueued() {
+        guard !isStreaming, let threadID = selectedThreadID,
+              let index = queue.firstIndex(where: { $0.threadID == threadID })
+        else { return }
+        let item = queue.remove(at: index)
+        if !dispatch(prompt: item.text, attachments: item.attachments, threadID: threadID) {
+            queue.insert(item, at: index)
+        }
+    }
+
+    /// Starts a turn, or reports why it cannot and returns false with nothing changed.
+    @discardableResult
+    private func dispatch(prompt: String, attachments: [Data], threadID: ChatThread.ID) -> Bool {
         guard license.isUnlocked else {
             errorMessage = "Your free trial has ended. Open Settings to buy Flare for $9.99."
-            return
+            return false
         }
         guard auth.isSignedIn() else {
             errorMessage = AuthError.notSignedIn.localizedDescription
-            return
+            return false
         }
-        guard let threadID = selectedThreadID else { return }
-
-        draft = ""
         errorMessage = nil
 
         let imageFiles = attachments.compactMap { image in
             withErrorReporting { try imageStore.save(image) }
         }
-        attachments = []
         let userMessage = ChatMessage(
             id: ChatMessage.ID(uuid()),
             threadID: threadID,
@@ -291,6 +323,7 @@ public final class FlareModel {
         streamTask = Task { [weak self] in
             await self?.runStream(threadID: threadID, messageID: messageID, response: response, reasoning: reasoning)
         }
+        return true
     }
 
     private func runStream(
@@ -332,6 +365,7 @@ public final class FlareModel {
             return
         }
 
+        var wasStopped = false
         do {
             let events = try await chatClient.stream(
                 turns,
@@ -369,6 +403,7 @@ public final class FlareModel {
                 }
             }
         } catch is CancellationError {
+            wasStopped = true
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -400,6 +435,8 @@ public final class FlareModel {
         relays[messageID] = MessageRelays(response: response, reasoning: reasoning)
         liveMessage = assistantMessage
         endStream()
+        // A stopped reply leaves the queue waiting; a finished one lets it move.
+        if !wasStopped { sendNextQueued() }
 
         await generateTitleIfNeeded(threadID, prompt: turns.last?.text ?? "", answer: text)
     }
@@ -506,6 +543,20 @@ public final class FlareModel {
         let head = String(prompt.prefix(60))
         guard head.count < prompt.count else { return head }
         return head.split(separator: " ").dropLast().joined(separator: " ") + "…"
+    }
+}
+
+public struct QueuedMessage: Identifiable, Equatable, Sendable {
+    public let id: UUID
+    public let threadID: ChatThread.ID
+    public let text: String
+    public let attachments: [Data]
+
+    public init(id: UUID, threadID: ChatThread.ID, text: String, attachments: [Data]) {
+        self.id = id
+        self.threadID = threadID
+        self.text = text
+        self.attachments = attachments
     }
 }
 

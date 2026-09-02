@@ -187,6 +187,11 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
 - `PanelScrim` sits at 30 percent black and 42 percent white: enough to read prose over a busy
   desktop, thin enough that the glass still shows.
 - User messages have no bubble. The muted colour marks the turn, and both sides share one margin.
+- A send while a reply streams joins `FlareModel.queue` (`QueuedMessage`, per thread) and shows in
+  `QueueView` above the composer, numbered, each removable. When a reply finishes on its own the
+  next queued message for the thread goes out; a stopped reply leaves the queue waiting behind a
+  "Send Next" button. While streaming, the send button queues when text is typed and stops when
+  the field is empty; ⌘. always stops.
 - Every message offers **Copy** (Markdown stripped by `MarkdownPlainText`) and **Copy as
   Markdown** (the stored source, verbatim).
 - `MarkdownRelay` feeds `StreamedMarkdownView` growing snapshots, not deltas, and replays the
