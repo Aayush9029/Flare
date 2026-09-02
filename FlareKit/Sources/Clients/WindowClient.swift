@@ -14,6 +14,7 @@ public struct WindowClient: Sendable {
     public var setRemembersPosition: @MainActor @Sendable (Bool) -> Void
     public var setPosition: @MainActor @Sendable (PanelPosition) -> Void
     public var setSize: @MainActor @Sendable (PanelSize) -> Void
+    public var setWidth: @MainActor @Sendable (CGFloat) -> Void
     public var showSettings: @MainActor @Sendable (_ content: NSView) -> Void
 }
 
@@ -32,6 +33,7 @@ extension WindowClient: DependencyKey {
             setRemembersPosition: { PanelHost.shared.remembersPosition = $0 },
             setPosition: { PanelHost.shared.position = $0 },
             setSize: { PanelHost.shared.setSize($0) },
+            setWidth: { PanelHost.shared.setWidth($0) },
             showSettings: { content in PanelHost.shared.showSettings(content) }
         )
     }
@@ -51,6 +53,7 @@ extension WindowClient: TestDependencyKey {
         setRemembersPosition: { _ in },
         setPosition: { _ in },
         setSize: { _ in },
+        setWidth: { _ in },
         showSettings: { _ in }
     )
 }
@@ -99,7 +102,9 @@ private final class PanelHost: NSObject, NSWindowDelegate {
     var remembersPosition = true
     var position = PanelPosition.bottomRight
     private var size = PanelSize.compact
+    private var width = PanelSize.defaultWidth
     private var hasAppliedSize = false
+    private var hasAppliedWidth = false
 
     private let panelSize = NSSize(width: 470, height: 660)
     private let radius: CGFloat = 20
@@ -170,6 +175,16 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         reposition()
     }
 
+    func setWidth(_ width: CGFloat) {
+        let changed = self.width != width
+        self.width = width
+        guard changed, hasAppliedWidth else {
+            hasAppliedWidth = true
+            return
+        }
+        reposition()
+    }
+
     private func screenUnderPointer() -> NSScreen? {
         let mouse = NSEvent.mouseLocation
         return NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
@@ -183,7 +198,7 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         guard let panel, let screen = (panel.isVisible ? panel.screen : nil) ?? screenUnderPointer() else { return }
         let visible = screen.visibleFrame
         let frame = NSSize(
-            width: min(self.size.width, visible.width - 32),
+            width: min(self.width, visible.width - 32),
             height: self.size.height(in: visible.height, minimum: panel.minSize.height)
         )
         // Clamped so a short display or an enlarged panel stays on screen.

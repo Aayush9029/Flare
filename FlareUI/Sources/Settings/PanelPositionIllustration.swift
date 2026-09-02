@@ -5,6 +5,7 @@ import SwiftUI
 struct PanelPositionIllustration: View {
     var position: PanelPosition = .bottomRight
     var size: PanelSize = .compact
+    var width: CGFloat = PanelSize.defaultWidth
 
     var body: some View {
         GeometryReader { proxy in
@@ -36,12 +37,12 @@ struct PanelPositionIllustration: View {
         }
     }
 
+    /// 420 points reads as a fifth of the screen, 720 as a third.
     private var panelWidthShare: CGFloat {
-        switch size {
-        case .compact: 0.20
-        case .half: 0.24
-        case .full: 0.28
-        }
+        let narrow = PanelSize.widths.first ?? 420
+        let wide = PanelSize.widths.last ?? 720
+        let t = min(max((width - narrow) / (wide - narrow), 0), 1)
+        return 0.18 + t * 0.14
     }
 
     private func panelHeight(screen: CGSize, menuBar: CGFloat, inset: CGFloat) -> CGFloat {

@@ -149,16 +149,19 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   at creation: naming at creation saves the empty starting frame, and the first show restores that
   corner instead of the pointer's screen. "Restore last position" in General turns the restore off.
   Without a frame to restore, `PanelPosition` (bottom left, bottom right, center) chosen in the
-  Position cards decides where it opens, 16 points in from the edges, and `PanelSize` (compact,
-  half, full) how tall and how wide: 470, 540 and 620 points, with 12 points kept clear under the
-  menu bar. A size change resizes the panel at once; a restored frame keeps the size it saved.
+  Position cards decides where it opens, 16 points in from the edges, `PanelSize` (compact, half,
+  full) how tall, with 12 points kept clear under the menu bar, and the Width slider how wide
+  (`panelWidth`, 420 to 720 in five stops). A change resizes the panel at once; a restored frame
+  keeps the size it saved.
 - Settings copy stays short: tool toggles are chips ("Web", "Image"), and the Account pane is two
   cards, ChatGPT and API Key. Choosing ChatGPT adopts a Codex CLI session when one exists;
   choosing API Key reveals the field. A pasted key is trimmed and must answer a "hi" through
   `verifyAPIKey` before it is kept. The old Automatic value reads as whichever is set up.
-- The composer's model chip opens `ModelSlider`, after ChatGPT's picker: five stops
-  (`ModelLevel`, Instant to Pro) that each pair a model with an effort. A pairing set elsewhere
-  that matches no stop shows by name. Escape and a click anywhere else put it away.
+- The composer's model chip opens `ModelSlider` in a card over the composer, after ChatGPT's
+  picker: five stops (`ModelLevel`, Instant to Pro) that each pair a model with an effort. A
+  pairing set elsewhere that matches no stop shows by name. Escape, a click anywhere else, or
+  three seconds after letting go put it away. The track itself is `StopSlider`, shared with the
+  Width slider in Settings.
 - Resources under `Flare/Resources/` are globbed at `tuist generate` time. A new file such as the
   `desktop.jpg` wallpaper thumbnail, one image for both appearances, is invisible to the build
   until the project is regenerated.

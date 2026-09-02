@@ -17,6 +17,7 @@ public final class Preferences {
     @ObservationIgnored @Shared(.remembersPanelPosition) public var remembersPanelPosition: Bool
     @ObservationIgnored @Shared(.panelPosition) public var panelPositionRaw: String
     @ObservationIgnored @Shared(.panelSize) public var panelSizeRaw: String
+    @ObservationIgnored @Shared(.panelWidth) public var panelWidth: Int
     @ObservationIgnored @Shared(.hasAppliedDefaultLoginItem) public var hasAppliedDefaultLoginItem: Bool
 
     public nonisolated static let defaultSystemPrompt = """

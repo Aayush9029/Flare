@@ -51,7 +51,7 @@ struct GeneralPane: View {
                             aspectRatio: 1.45,
                             action: { preferences.$panelPositionRaw.withLock { $0 = position.rawValue } }
                         ) {
-                            PanelPositionIllustration(position: position, size: preferences.panelSize)
+                            PanelPositionIllustration(position: position, size: preferences.panelSize, width: CGFloat(preferences.panelWidth))
                         }
                     }
                 }
@@ -74,13 +74,16 @@ struct GeneralPane: View {
                             aspectRatio: 1.45,
                             action: { preferences.$panelSizeRaw.withLock { $0 = size.rawValue } }
                         ) {
-                            PanelPositionIllustration(position: preferences.panelPosition, size: size)
+                            PanelPositionIllustration(position: preferences.panelPosition, size: size, width: CGFloat(preferences.panelWidth))
                         }
                     }
                 }
                 .padding(.vertical, 6)
                 .padding(.horizontal, 6)
                 .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+
+                WidthSlider(preferences: preferences)
+                    .padding(.vertical, 4)
             }
 
             Section("Tools") {

@@ -28,6 +28,12 @@ public extension SharedReaderKey where Self == AppStorageKey<String>.Default {
     }
 }
 
+public extension SharedReaderKey where Self == AppStorageKey<Int>.Default {
+    static var panelWidth: Self {
+        Self[.appStorage("panelWidth"), default: Int(PanelSize.defaultWidth)]
+    }
+}
+
 public extension SharedReaderKey where Self == AppStorageKey<Bool>.Default {
     static var showsDockIcon: Self {
         Self[.appStorage("showsDockIcon"), default: false]

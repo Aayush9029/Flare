@@ -18,9 +18,9 @@ public enum PanelSize: String, CaseIterable, Sendable, Identifiable {
 
     public var description: String {
         switch self {
-        case .compact: "A short, narrow panel that stays out of the way."
-        case .half: "Half the height of the screen, a little wider."
-        case .full: "The full height of the screen below the menu bar, wider still."
+        case .compact: "A short panel that stays out of the way."
+        case .half: "Half the height of the screen."
+        case .full: "The full height of the screen, below the menu bar."
         }
     }
 
@@ -36,14 +36,9 @@ public enum PanelSize: String, CaseIterable, Sendable, Identifiable {
     public static let topGap: CGFloat = 12
     public static let bottomGap: CGFloat = 16
 
-    /// Each step up is taller and a little wider.
-    public var width: CGFloat {
-        switch self {
-        case .compact: 470
-        case .half: 540
-        case .full: 620
-        }
-    }
+    /// The widths the Settings slider offers; the panel also resizes freely.
+    public static let widths: [CGFloat] = [420, 470, 540, 620, 720]
+    public static let defaultWidth: CGFloat = 470
 
     public func height(in visibleHeight: CGFloat, minimum: CGFloat) -> CGFloat {
         let wanted: CGFloat = switch self {

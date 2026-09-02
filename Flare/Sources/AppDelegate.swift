@@ -74,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applyRemembersPosition(model: model)
         applyPanelPosition(model: model)
         applyPanelSize(model: model)
+        applyPanelWidth(model: model)
     }
 
     private func setUpStatusItem(model: FlareModel) {
@@ -156,6 +157,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 guard let self, let model = self.model else { return }
                 self.applyPanelSize(model: model)
+            }
+        }
+    }
+
+    private func applyPanelWidth(model: FlareModel) {
+        withObservationTracking {
+            windowClient.setWidth(CGFloat(model.preferences.panelWidth))
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self, let model = self.model else { return }
+                self.applyPanelWidth(model: model)
             }
         }
     }
