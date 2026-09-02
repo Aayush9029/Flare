@@ -12,55 +12,72 @@ struct ModelPickerOverlay: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // A material under a gradient mask: clear at the top, frosted where the
-            // card sits, so the chat fades out toward the picker rather than all at once.
-            Rectangle()
-                .fill(.regularMaterial)
-                .mask {
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .clear, location: 0.25),
-                            .init(color: .black, location: 0.7),
-                            .init(color: .black, location: 1),
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                }
-                .contentShape(.rect)
-                .onTapGesture { model.dismissModelPicker() }
+            if model.isModelPickerPresented {
+                // The band fades in where it is; a material under a gradient mask, clear
+                // at the top and frosted where the card sits.
+                Rectangle()
+                    .fill(.regularMaterial)
+                    .mask {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0),
+                                .init(color: .clear, location: 0.25),
+                                .init(color: .black, location: 0.7),
+                                .init(color: .black, location: 1),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                    .contentShape(.rect)
+                    .onTapGesture { withAnimation(Morph.animation) { model.dismissModelPicker() } }
+                    .transition(.opacity)
 
-            VStack(spacing: 12) {
-                Text(ModelLabel.text(for: model.preferences, preview: preview))
-                    .font(.headline)
-                    .contentTransition(.numericText())
-                    .animation(.easeOut(duration: 0.12), value: preview)
-                ModelSlider(preferences: model.preferences) { level in
-                    preview = level
-                    if level != nil { dismissal?.cancel() }
-                } onCommit: {
-                    scheduleDismissal()
-                }
-                .padding(.horizontal, 12)
-                Text((preview ?? ModelLevel.matching(model: model.preferences.selectedModel, effort: model.preferences.effectiveEffort))?.detail ?? model.preferences.model.detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // The card grows out of the chip's corner and shrinks back into it.
+                card
+                    .transition(
+                        .asymmetric(
+                            insertion: .scale(scale: 0.55, anchor: .bottomTrailing).combined(with: .opacity),
+                            removal: .scale(scale: 0.85, anchor: .bottomTrailing).combined(with: .opacity)
+                        )
+                    )
             }
-            .padding(.vertical, 16)
-            .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity)
-            .background(cardFill, in: .rect(cornerRadius: 22, style: .continuous))
-            .background(.ultraThinMaterial, in: .rect(cornerRadius: 22, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.12), radius: 18, y: 8)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
         }
-        .onDisappear { dismissal?.cancel() }
+        .animation(Morph.animation, value: model.isModelPickerPresented)
+        .onChange(of: model.isModelPickerPresented) { _, presented in
+            if !presented { dismissal?.cancel() }
+        }
+    }
+
+    private var card: some View {
+        VStack(spacing: 12) {
+            Text(ModelLabel.text(for: model.preferences, preview: preview))
+                .font(.headline)
+                .contentTransition(.numericText())
+                .animation(.easeOut(duration: 0.12), value: preview)
+            ModelSlider(preferences: model.preferences) { level in
+                preview = level
+                if level != nil { dismissal?.cancel() }
+            } onCommit: {
+                scheduleDismissal()
+            }
+            .padding(.horizontal, 12)
+            Text((preview ?? ModelLevel.matching(model: model.preferences.selectedModel, effort: model.preferences.effectiveEffort))?.detail ?? model.preferences.model.detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 16)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity)
+        .background(cardFill, in: .rect(cornerRadius: 22, style: .continuous))
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.12), radius: 18, y: 8)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 16)
     }
 
     /// Soft white in light mode, deep glass in dark.
@@ -73,7 +90,7 @@ struct ModelPickerOverlay: View {
         dismissal = Task {
             try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled else { return }
-            model.dismissModelPicker()
+            withAnimation(Morph.animation) { model.dismissModelPicker() }
         }
     }
 }

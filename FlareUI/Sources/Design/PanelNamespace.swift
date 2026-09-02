@@ -4,6 +4,8 @@ import SwiftUI
 /// share a matched geometry across view hierarchies.
 extension EnvironmentValues {
     @Entry var panelNamespace: Namespace.ID?
+    /// Room the transcript keeps clear at its foot for whatever floats over it.
+    @Entry var transcriptBottomInset: CGFloat = 0
 }
 
 enum Morph {

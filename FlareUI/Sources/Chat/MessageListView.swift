@@ -9,6 +9,7 @@ struct MessageListView: View {
     @FetchAll private var messages: [ChatMessage]
     @State private var position = ScrollPosition(edge: .bottom)
     @State private var isPinnedToBottom = true
+    @Environment(\.transcriptBottomInset) private var bottomInset
 
     init(threadID: ChatThread.ID, model: FlareModel) {
         self.threadID = threadID
@@ -43,6 +44,10 @@ struct MessageListView: View {
         }
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom)
+        .contentMargins(.bottom, bottomInset, for: .scrollContent)
+        .onChange(of: bottomInset) { _, _ in
+            if isPinnedToBottom { position.scrollTo(edge: .bottom) }
+        }
         .onScrollGeometryChange(for: ScrollMetrics.self, of: ScrollMetrics.init) { old, new in
             if new.contentHeight != old.contentHeight {
                 // Content grew or shrank; follow it only if the reader was at the end.

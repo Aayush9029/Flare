@@ -6,17 +6,16 @@ import SwiftUI
 struct QueueOverlay: View {
     let model: FlareModel
     let composerHeight: CGFloat
-
-    @State private var queueHeight: CGFloat = 0
+    @Binding var queueHeight: CGFloat
 
     var body: some View {
         ZStack(alignment: .bottom) {
             Rectangle()
-                .fill(.regularMaterial)
-                .frame(height: queueHeight + 72)
+                .fill(.thinMaterial)
+                .frame(height: queueHeight + 90)
                 .mask {
                     LinearGradient(
-                        stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.5)],
+                        stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.6)],
                         startPoint: .top,
                         endPoint: .bottom
                     )

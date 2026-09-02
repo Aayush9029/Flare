@@ -12,6 +12,7 @@ public struct PanelContentView: View {
 
     @State private var isDropTargeted = false
     @State private var composerHeight: CGFloat = 0
+    @State private var queueHeight: CGFloat = 0
     @Namespace private var panelNamespace
 
     public var body: some View {
@@ -27,11 +28,13 @@ public struct PanelContentView: View {
         .overlay(alignment: .bottom) {
             // Queued messages float over the chat rather than pushing it up.
             if !model.queuedForCurrentThread.isEmpty {
-                QueueOverlay(model: model, composerHeight: composerHeight)
+                QueueOverlay(model: model, composerHeight: composerHeight, queueHeight: $queueHeight)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
         .animation(Morph.animation, value: model.queuedForCurrentThread.isEmpty)
+        // The newest lines scroll up above the queue instead of under it.
+        .environment(\.transcriptBottomInset, model.queuedForCurrentThread.isEmpty ? 0 : queueHeight + 12)
         .onDrop(of: [.image, .fileURL], isTargeted: $isDropTargeted) { providers in
             ImageDrop.load(providers) { model.addAttachment($0) }
         }
@@ -58,19 +61,8 @@ public struct PanelContentView: View {
             }
         }
         .animation(Morph.animation, value: model.presentedReasoning?.id)
-        .overlay {
-            if model.isModelPickerPresented {
-                // Grows out of the chip's corner and shrinks back into it.
-                ModelPickerOverlay(model: model)
-                    .transition(
-                        .asymmetric(
-                            insertion: .scale(scale: 0.55, anchor: .bottomTrailing).combined(with: .opacity),
-                            removal: .scale(scale: 0.8, anchor: .bottomTrailing).combined(with: .opacity)
-                        )
-                    )
-            }
-        }
-        .animation(Morph.animation, value: model.isModelPickerPresented)
+        // Always present, so the band and the card can each enter their own way.
+        .overlay { ModelPickerOverlay(model: model) }
         .environment(\.panelNamespace, panelNamespace)
         .background(PanelScrim())
         // The panel has no title bar; any spot that nothing else claims drags it.

@@ -25,11 +25,15 @@ struct QueueView: View {
             .foregroundStyle(.secondary)
             .padding(.horizontal, 4)
 
-            ForEach(Array(queued.enumerated()), id: \.element.id) { index, item in
-                QueueRow(index: index + 1, item: item, isNext: index == 0 && model.isStreaming) {
-                    model.removeFromQueue(item.id)
+            GlassEffectContainer(spacing: 8) {
+                VStack(spacing: 8) {
+                    ForEach(Array(queued.enumerated()), id: \.element.id) { index, item in
+                        QueueRow(index: index + 1, item: item, isNext: index == 0 && model.isStreaming) {
+                            model.removeFromQueue(item.id)
+                        }
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(.snappy(duration: 0.25), value: queued.map(\.id))
@@ -71,12 +75,15 @@ private struct QueueRow: View {
             .accessibilityLabel("Remove from queue")
             .help("Remove from queue")
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(.primary.opacity(0.05), in: .rect(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        // The same glass as the composer, so the rows read as part of it.
+        .glassEffect(.regular, in: .rect(cornerRadius: 18, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(isNext ? AnyShapeStyle(QueuePurple.color.opacity(0.55)) : AnyShapeStyle(.primary.opacity(0.08)), lineWidth: 1)
+            if isNext {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(QueuePurple.color.opacity(0.45), lineWidth: 1)
+            }
         }
         .onHover { isHovering = $0 }
     }
