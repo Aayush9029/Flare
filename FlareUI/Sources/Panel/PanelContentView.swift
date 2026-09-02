@@ -11,6 +11,7 @@ public struct PanelContentView: View {
     }
 
     @State private var isDropTargeted = false
+    @Namespace private var panelNamespace
 
     public var body: some View {
         VStack(spacing: 0) {
@@ -42,17 +43,19 @@ public struct PanelContentView: View {
         .overlay {
             if let message = model.presentedReasoning {
                 ThoughtsView(message: message, model: model)
-                    .transition(.scale(scale: 0.98).combined(with: .opacity))
+                    .morph(Morph.thoughts(message.id), in: panelNamespace, isSource: true)
+                    .transition(.opacity)
             }
         }
-        .animation(.easeOut(duration: 0.2), value: model.presentedReasoning?.id)
+        .animation(Morph.animation, value: model.presentedReasoning?.id)
         .overlay {
             if model.isModelPickerPresented {
                 ModelPickerOverlay(model: model)
-                    .transition(.opacity.combined(with: .offset(y: 12)))
+                    .transition(.opacity)
             }
         }
-        .animation(.snappy(duration: 0.26), value: model.isModelPickerPresented)
+        .animation(Morph.animation, value: model.isModelPickerPresented)
+        .environment(\.panelNamespace, panelNamespace)
         .background(PanelScrim())
         // The panel has no title bar; any spot that nothing else claims drags it.
         .gesture(WindowDragGesture())

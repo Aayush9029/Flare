@@ -11,6 +11,7 @@ struct ReasoningView: View {
 
     @State private var document: MarkdownDocumentModel
     @State private var isOpenInline = false
+    @Environment(\.panelNamespace) private var namespace
 
     private static let peekHeight: CGFloat = 72
     private static let radius: CGFloat = 12
@@ -37,7 +38,7 @@ struct ReasoningView: View {
                 if opensInline {
                     withAnimation(.easeInOut(duration: 0.22)) { isOpenInline.toggle() }
                 } else {
-                    model.showReasoning(for: message)
+                    withAnimation(Morph.animation) { model.showReasoning(for: message) }
                 }
             } label: {
                 HStack(spacing: 6) {
@@ -105,6 +106,8 @@ struct ReasoningView: View {
                 .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // The card is where the thoughts grow from and shrink back to.
+        .morph(Morph.thoughts(message.id), in: namespace, isSource: model.presentedReasoning?.id != message.id)
         .animation(.easeInOut(duration: 0.22), value: timing.isThinking)
     }
 

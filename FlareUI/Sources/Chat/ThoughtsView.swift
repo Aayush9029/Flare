@@ -30,7 +30,7 @@ struct ThoughtsView: View {
                     .padding(.vertical, 2)
                     .background(.primary.opacity(0.07), in: .rect(cornerRadius: 4))
                 Button {
-                    model.dismissReasoning()
+                    withAnimation(Morph.animation) { model.dismissReasoning() }
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .semibold))
