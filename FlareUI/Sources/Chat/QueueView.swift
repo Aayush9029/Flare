@@ -19,7 +19,7 @@ struct QueueView: View {
                     Button("Send Next") { model.sendNextQueued() }
                         .buttonStyle(.plain)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tint)
+                        .foregroundStyle(QueuePurple.color)
                 }
             }
             .foregroundStyle(.secondary)
@@ -76,50 +76,84 @@ private struct QueueRow: View {
         .background(.primary.opacity(0.05), in: .rect(cornerRadius: 12, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(isNext ? AnyShapeStyle(.tint.opacity(0.5)) : AnyShapeStyle(.primary.opacity(0.08)), lineWidth: 1)
+                .strokeBorder(isNext ? AnyShapeStyle(QueuePurple.color.opacity(0.55)) : AnyShapeStyle(.primary.opacity(0.08)), lineWidth: 1)
         }
         .onHover { isHovering = $0 }
     }
 }
 
-/// A numbered orb: a radial fill lit from the upper left, a specular glint, and a
-/// soft shadow. Tinted for the message that goes next, grey for the rest.
+/// The picker's purple, so the queue reads as the same family.
+enum QueuePurple {
+    static let color = Color(red: 0.46, green: 0.26, blue: 0.92)
+}
+
+/// A numbered orb: a sphere shaded from the upper left, a dark rim on the far side,
+/// a specular glint, and a thread of rim light along the bottom. No drop shadow.
 private struct OrbBadge: View {
     let number: Int
     let isLit: Bool
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private let size: CGFloat = 22
+    private let size: CGFloat = 24
+
+    private var base: [Color] {
+        if isLit {
+            return [Color(red: 0.86, green: 0.76, blue: 1.0), Color(red: 0.55, green: 0.36, blue: 0.96), Color(red: 0.30, green: 0.14, blue: 0.62)]
+        }
+        return colorScheme == .dark
+            ? [Color(white: 0.72), Color(white: 0.42), Color(white: 0.18)]
+            : [Color(white: 0.98), Color(white: 0.78), Color(white: 0.52)]
+    }
 
     var body: some View {
         ZStack {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: isLit
-                            ? [Color(red: 0.80, green: 0.66, blue: 1.0), Color(red: 0.46, green: 0.26, blue: 0.92)]
-                            : [Color.primary.opacity(colorScheme == .dark ? 0.35 : 0.22), Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.08)],
-                        center: UnitPoint(x: 0.32, y: 0.28),
-                        startRadius: 1,
-                        endRadius: size * 0.75
+                        colors: base,
+                        center: UnitPoint(x: 0.34, y: 0.28),
+                        startRadius: 0,
+                        endRadius: size * 0.78
                     )
                 )
+            // The far side falls into shade: a soft dark band inside the rim.
             Circle()
-                .strokeBorder(.white.opacity(isLit ? 0.35 : 0.18), lineWidth: 0.8)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [.clear, .clear, .black.opacity(isLit ? 0.42 : 0.3)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: size * 0.3
+                )
+                .blur(radius: 1.8)
+                .mask(Circle())
+            // The glint where the light lands.
             Ellipse()
-                .fill(.white.opacity(isLit ? 0.55 : 0.35))
-                .frame(width: size * 0.42, height: size * 0.26)
-                .blur(radius: 1.2)
-                .offset(x: -size * 0.16, y: -size * 0.26)
+                .fill(
+                    LinearGradient(
+                        colors: [.white.opacity(0.95), .white.opacity(0.0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: size * 0.5, height: size * 0.3)
+                .offset(x: -size * 0.08, y: -size * 0.28)
+                .blur(radius: 0.5)
+            // Light bouncing back up from below.
+            Circle()
+                .strokeBorder(.white.opacity(isLit ? 0.5 : 0.35), lineWidth: 1)
+                .mask {
+                    LinearGradient(colors: [.clear, .clear, .white], startPoint: .top, endPoint: .bottom)
+                }
+                .padding(1)
             Text("\(number)")
-                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(isLit ? .white : .secondary)
-                .shadow(color: .black.opacity(isLit ? 0.25 : 0), radius: 1, y: 0.5)
+                .foregroundStyle(isLit ? .white : (colorScheme == .dark ? .white.opacity(0.9) : .black.opacity(0.65)))
         }
         .frame(width: size, height: size)
-        .shadow(color: (isLit ? Color(red: 0.46, green: 0.26, blue: 0.92) : .black).opacity(isLit ? 0.45 : 0.18), radius: isLit ? 5 : 2, y: 2)
         .shimmer(isActive: isLit)
         .accessibilityHidden(true)
     }
