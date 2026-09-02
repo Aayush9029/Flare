@@ -46,6 +46,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let model, let id = model.selectedThreadID, !model.isStreaming else { return }
             model.discardEmptyThread(id)
         }
+        windowClient.setResizeHandler { [weak model] width, size in
+            guard let model else { return }
+            model.preferences.$panelWidth.withLock { $0 = Int(width) }
+            model.preferences.$panelSizeRaw.withLock { $0 = size.rawValue }
+        }
 
         KeyboardShortcuts.onKeyDown(for: .toggleFlare) { [weak model] in
             Task { @MainActor in model?.toggle() }

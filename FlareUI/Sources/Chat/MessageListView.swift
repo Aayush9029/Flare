@@ -82,7 +82,13 @@ private struct ScrollMetrics: Equatable {
 private struct EmptyChatView: View {
     var body: some View {
         ContentUnavailableView {
-            Label("Ask anything", systemImage: "sparkle")
+            Label {
+                Text("Ask anything")
+            } icon: {
+                FlareBolt()
+                    .fill(.secondary)
+                    .frame(width: 26, height: 30)
+            }
         } description: {
             Text("Answers stream from OpenAI. Every chat stays on this Mac.")
         }

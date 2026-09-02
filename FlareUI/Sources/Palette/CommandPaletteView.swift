@@ -18,9 +18,9 @@ struct CommandPaletteView: View {
                     results
                 }
             }
-            .frame(height: 300)
+            .frame(maxHeight: .infinity)
         }
-        .frame(width: 390)
+        .frame(maxWidth: 440, maxHeight: .infinity)
         .glassEffect(.regular, in: .rect(cornerRadius: radius))
         .shadow(color: .black.opacity(0.4), radius: 30, y: 12)
         .task {

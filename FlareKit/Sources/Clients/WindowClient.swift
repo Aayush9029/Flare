@@ -9,6 +9,8 @@ public struct WindowClient: Sendable {
     public var hide: @MainActor @Sendable () -> Void
     public var reposition: @MainActor @Sendable () -> Void
     public var setResignHandler: @MainActor @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
+    /// Fires when the user finishes resizing the panel, with the nearest width stop and size.
+    public var setResizeHandler: @MainActor @Sendable (@escaping @MainActor @Sendable (CGFloat, PanelSize) -> Void) -> Void
     public var setCancelHandler: @MainActor @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
     public var setStaysOnTop: @MainActor @Sendable (Bool) -> Void
     public var setRemembersPosition: @MainActor @Sendable (Bool) -> Void
@@ -37,6 +39,7 @@ extension WindowClient: DependencyKey {
             hide: { PanelHost.shared.hide() },
             reposition: { PanelHost.shared.reposition() },
             setResignHandler: { handler in PanelHost.shared.onResign = handler },
+            setResizeHandler: { handler in PanelHost.shared.onUserResize = handler },
             setCancelHandler: { handler in PanelHost.shared.setCancelHandler(handler) },
             setStaysOnTop: { PanelHost.shared.staysOnTop = $0 },
             setRemembersPosition: { PanelHost.shared.remembersPosition = $0 },
@@ -59,6 +62,7 @@ extension WindowClient: TestDependencyKey {
         hide: {},
         reposition: {},
         setResignHandler: { _ in },
+        setResizeHandler: { _ in },
         setCancelHandler: { _ in },
         setStaysOnTop: { _ in },
         setRemembersPosition: { _ in },
@@ -110,6 +114,7 @@ private final class PanelHost: NSObject, NSWindowDelegate {
     var panel: FlarePanel?
     var settingsWindow: NSWindow?
     var onResign: (@MainActor @Sendable () -> Void)?
+    var onUserResize: (@MainActor @Sendable (CGFloat, PanelSize) -> Void)?
     private var isMenuTracking = false
     var staysOnTop = false
     var remembersPosition = true
@@ -343,6 +348,23 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         guard settingsWindow?.isKeyWindow != true else { return }
         hide()
         onResign?()
+    }
+
+    /// A hand-resized panel keeps its new frame, and Settings moves to the nearest
+    /// width stop and size so the cards and slider tell the truth.
+    func windowDidEndLiveResize(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === panel, let screen = window.screen else { return }
+        let frame = window.frame
+        let nearestWidth = PanelSize.widths.min { abs($0 - frame.width) < abs($1 - frame.width) } ?? width
+        let visible = screen.visibleFrame
+        let nearestSize = PanelSize.allCases.min {
+            abs($0.height(in: visible.height, minimum: window.minSize.height) - frame.height)
+                < abs($1.height(in: visible.height, minimum: window.minSize.height) - frame.height)
+        } ?? size
+        // Adopted first, so the preference change that follows finds nothing to apply.
+        width = nearestWidth
+        size = nearestSize
+        onUserResize?(nearestWidth, nearestSize)
     }
 
     func windowWillClose(_ notification: Notification) {
