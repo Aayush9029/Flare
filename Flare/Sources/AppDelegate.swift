@@ -69,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { await model.license.start() }
 
         setUpStatusItem(model: model)
+        applyMenuBarPreference(model: model)
         applyDockPreference(model: model)
         applyStaysOnTop(model: model)
         applyRemembersPosition(model: model)
@@ -104,6 +105,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         item.menu = menu
         statusItem = item
+    }
+
+    private func applyMenuBarPreference(model: FlareModel) {
+        withObservationTracking {
+            statusItem?.isVisible = model.preferences.showsMenuBarIcon
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self, let model = self.model else { return }
+                self.applyMenuBarPreference(model: model)
+            }
+        }
     }
 
     private func applyDockPreference(model: FlareModel) {

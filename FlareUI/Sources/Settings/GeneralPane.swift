@@ -29,6 +29,16 @@ struct GeneralPane: View {
                     ) {
                         AnimatedImage(resource: SettingsIllustration.dockIcon)
                     }
+
+                    ToggleCard(
+                        title: "Show in Menu Bar",
+                        description: "The bolt in the menu bar. Off, the hotkey opens Flare and ⌘, in the panel opens Settings.",
+                        icon: "menubar.rectangle",
+                        isOn: preferences.showsMenuBarIcon,
+                        action: { preferences.$showsMenuBarIcon.withLock { $0.toggle() } }
+                    ) {
+                        MenuBarIllustration()
+                    }
                 }
                 .padding(.vertical, 6)
                 .padding(.horizontal, 6)

@@ -142,6 +142,8 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   `keyboardShortcut`: a focused `TextField` swallows the key first.
 - The composer takes focus whenever the panel becomes key, whatever held it before, so the hotkey
   or a click on the panel is enough to start typing.
+- "Show in Menu Bar" hides the status item (`NSStatusItem.isVisible`). Off, the hotkey is the way
+  in and ⌘, in the panel is the way to Settings; the card says so.
 - The panel hides when it resigns key, with three exemptions: a tracking `NSMenu` (the model
   picker lives inside the panel), a key Settings window, and the "Float on top" preference.
 - The panel drags from any spot nothing else claims (`WindowDragGesture` on the content) and

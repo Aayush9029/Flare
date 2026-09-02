@@ -39,6 +39,10 @@ public extension SharedReaderKey where Self == AppStorageKey<Bool>.Default {
         Self[.appStorage("showsDockIcon"), default: false]
     }
 
+    static var showsMenuBarIcon: Self {
+        Self[.appStorage("showsMenuBarIcon"), default: true]
+    }
+
     static var showsReasoning: Self {
         Self[.appStorage("showsReasoning"), default: true]
     }

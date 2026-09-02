@@ -9,6 +9,7 @@ public final class Preferences {
     @ObservationIgnored @Shared(.systemPrompt) public var systemPrompt: String
     @ObservationIgnored @Shared(.credentialPreference) public var credentialPreferenceRaw: String
     @ObservationIgnored @Shared(.showsDockIcon) public var showsDockIcon: Bool
+    @ObservationIgnored @Shared(.showsMenuBarIcon) public var showsMenuBarIcon: Bool
     @ObservationIgnored @Shared(.showsReasoning) public var showsReasoning: Bool
     @ObservationIgnored @Shared(.webSearchEnabled) public var webSearchEnabled: Bool
     @ObservationIgnored @Shared(.imagesEnabled) public var imagesEnabled: Bool
