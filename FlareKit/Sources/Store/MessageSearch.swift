@@ -9,6 +9,16 @@ public struct SearchHit: Identifiable, Equatable, Sendable {
     public let title: String
     public let snippet: String
     public let updatedAt: Date
+    /// The newest image on the thread, for a thumbnail in the row. Empty when none.
+    public let imageFile: String
+
+    public init(threadID: ChatThread.ID, title: String, snippet: String, updatedAt: Date, imageFile: String = "") {
+        self.threadID = threadID
+        self.title = title
+        self.snippet = snippet
+        self.updatedAt = updatedAt
+        self.imageFile = imageFile
+    }
 
     public var id: ChatThread.ID { threadID }
 
@@ -48,12 +58,17 @@ public enum MessageSearch {
               ORDER BY rank
               LIMIT \(bind: matchLimit)
             )
-            SELECT "threadID", "title", "snippet", "updatedAt" FROM (
+            SELECT "threadID", "title", "snippet", "updatedAt", "imageFile" FROM (
               SELECT
                 t."id" AS "threadID",
                 t."title" AS "title",
                 m."snippet" AS "snippet",
                 t."updatedAt" AS "updatedAt",
+                coalesce((
+                  SELECT i."imageFile" FROM "chatMessages" i
+                  WHERE i."threadID" = t."id" AND i."imageFile" != ''
+                  ORDER BY i."createdAt" DESC LIMIT 1
+                ), '') AS "imageFile",
                 min(m."score") AS "best"
               FROM "matches" m
               JOIN "chatThreads" t ON t."id" = m."tid"
@@ -77,7 +92,12 @@ public enum MessageSearch {
                 WHERE m."threadID" = t."id"
                 ORDER BY m."createdAt" DESC LIMIT 1
               ), '') AS "snippet",
-              t."updatedAt" AS "updatedAt"
+              t."updatedAt" AS "updatedAt",
+              coalesce((
+                SELECT i."imageFile" FROM "chatMessages" i
+                WHERE i."threadID" = t."id" AND i."imageFile" != ''
+                ORDER BY i."createdAt" DESC LIMIT 1
+              ), '') AS "imageFile"
             FROM "chatThreads" t
             WHERE EXISTS (SELECT 1 FROM "chatMessages" m WHERE m."threadID" = t."id")
             ORDER BY t."updatedAt" DESC
