@@ -28,12 +28,14 @@ private struct CardBand: ViewModifier {
     let level: Int
 
     func body(content: Content) -> some View {
-        content.background(fill)
+        content
+            .background(fill)
+            .background(.ultraThinMaterial)
     }
 
     private var fill: Color {
-        let dark: [Double] = [0.60, 0.75, 0.90]
-        let light: [Double] = [0.06, 0.04, 0.03]
+        let dark: [Double] = [0.18, 0.28, 0.38]
+        let light: [Double] = [0.04, 0.03, 0.02]
         let index = min(level, dark.count - 1)
         return colorScheme == .dark
             ? .black.opacity(dark[index])

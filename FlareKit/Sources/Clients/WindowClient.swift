@@ -183,7 +183,7 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         guard let panel, let screen = (panel.isVisible ? panel.screen : nil) ?? screenUnderPointer() else { return }
         let visible = screen.visibleFrame
         let frame = NSSize(
-            width: panel.frame.width,
+            width: min(self.size.width, visible.width - 32),
             height: self.size.height(in: visible.height, minimum: panel.minSize.height)
         )
         // Clamped so a short display or an enlarged panel stays on screen.

@@ -18,9 +18,9 @@ public enum PanelSize: String, CaseIterable, Sendable, Identifiable {
 
     public var description: String {
         switch self {
-        case .compact: "A short panel that stays out of the way."
-        case .half: "Half the height of the screen."
-        case .full: "The full height of the screen, below the menu bar."
+        case .compact: "A short, narrow panel that stays out of the way."
+        case .half: "Half the height of the screen, a little wider."
+        case .full: "The full height of the screen below the menu bar, wider still."
         }
     }
 
@@ -35,6 +35,15 @@ public enum PanelSize: String, CaseIterable, Sendable, Identifiable {
     /// Gaps kept clear above and below a full-height panel.
     public static let topGap: CGFloat = 12
     public static let bottomGap: CGFloat = 16
+
+    /// Each step up is taller and a little wider.
+    public var width: CGFloat {
+        switch self {
+        case .compact: 470
+        case .half: 540
+        case .full: 620
+        }
+    }
 
     public func height(in visibleHeight: CGFloat, minimum: CGFloat) -> CGFloat {
         let wanted: CGFloat = switch self {

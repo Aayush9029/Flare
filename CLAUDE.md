@@ -150,8 +150,8 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   corner instead of the pointer's screen. "Restore last position" in General turns the restore off.
   Without a frame to restore, `PanelPosition` (bottom left, bottom right, center) chosen in the
   Position cards decides where it opens, 16 points in from the edges, and `PanelSize` (compact,
-  half, full) how tall, with 12 points kept clear under the menu bar. A size change resizes the
-  panel at once; a restored frame keeps the height it saved.
+  half, full) how tall and how wide: 470, 540 and 620 points, with 12 points kept clear under the
+  menu bar. A size change resizes the panel at once; a restored frame keeps the size it saved.
 - Settings copy stays short: tool toggles are chips ("Web", "Image"), and the Account pane is two
   cards, ChatGPT and API Key. Choosing ChatGPT adopts a Codex CLI session when one exists;
   choosing API Key reveals the field. A pasted key is trimmed and must answer a "hi" through
@@ -160,8 +160,10 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   (`ModelLevel`, Instant to Pro) that each pair a model with an effort. A pairing set elsewhere
   that matches no stop shows by name. Escape and a click anywhere else put it away.
 - Resources under `Flare/Resources/` are globbed at `tuist generate` time. A new file such as the
-  `desktop-light.jpg` and `desktop-dark.jpg` wallpaper thumbnails is invisible to the build until
-  the project is regenerated.
+  `desktop.jpg` wallpaper thumbnail, one image for both appearances, is invisible to the build
+  until the project is regenerated.
+- Settings sections and cards sit on `.ultraThinMaterial` so the window's glass shows through; the
+  grouped form's own section fill is opaque.
 - Images reach the composer by drop on the panel or by paste. The composer's field editor takes
   Command-V first and drops anything that is not text, so `AppDelegate` catches an image paste in
   a local key monitor and hands it to `FlareModel.addAttachment`. `ImageDrop` keeps PNG and JPEG
