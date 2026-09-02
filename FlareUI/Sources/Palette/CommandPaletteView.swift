@@ -20,7 +20,7 @@ struct CommandPaletteView: View {
             }
             .frame(maxHeight: .infinity)
         }
-        .frame(maxWidth: 440, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .glassEffect(.regular, in: .rect(cornerRadius: radius))
         .shadow(color: .black.opacity(0.4), radius: 30, y: 12)
         .task {
@@ -36,7 +36,7 @@ struct CommandPaletteView: View {
 
             TextField("Search your chats", text: queryBinding)
                 .textFieldStyle(.plain)
-                .font(.title3)
+                .font(.title2)
                 .focused($isFocused)
                 .onSubmit(model.commitPaletteSelection)
                 .onKeyPress(.upArrow) {
@@ -48,8 +48,8 @@ struct CommandPaletteView: View {
                     return .handled
                 }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 18)
     }
 
     private var results: some View {

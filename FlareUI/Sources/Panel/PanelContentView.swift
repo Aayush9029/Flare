@@ -60,8 +60,7 @@ public struct PanelContentView: View {
         .overlay(alignment: .top) {
             if model.palette.isPresented {
                 CommandPaletteView(model: model)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 24)
+                    .padding(12)
                     .transition(.scale(scale: 0.96, anchor: .top).combined(with: .opacity))
             }
         }

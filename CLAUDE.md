@@ -162,7 +162,7 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
 - A hand resize keeps its frame; `windowDidEndLiveResize` moves Width and Size to the nearest
   stops so Settings tells the truth. `PanelHost` adopts the values before the preferences change,
   so the change that follows finds nothing to apply and the frame is not snapped.
-- The ⌘K palette fills the panel's height within a 440-point width; the empty state shows the
+- The ⌘K palette fills the panel inside a 12-point margin, no width cap; the empty state shows the
   bolt, not a symbol. A restored frame keeps the size it saved.
 - Settings copy stays short: tool toggles are chips ("Web", "Image"), and the Account pane is two
   cards, ChatGPT and API Key. Choosing ChatGPT adopts a Codex CLI session when one exists;
