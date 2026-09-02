@@ -7,7 +7,6 @@ struct ModelPickerOverlay: View {
     let model: FlareModel
 
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.panelNamespace) private var namespace
     @State private var preview: ModelLevel?
     @State private var dismissal: Task<Void, Never>?
 
@@ -58,7 +57,6 @@ struct ModelPickerOverlay: View {
                     .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
             }
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.12), radius: 18, y: 8)
-            .morph(Morph.modelPicker, in: namespace, isSource: true)
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
         }

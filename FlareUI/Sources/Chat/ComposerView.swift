@@ -14,10 +14,6 @@ struct ComposerView: View {
                 ErrorBanner(message: errorMessage) { model.errorMessage = nil }
             }
 
-            if !model.queuedForCurrentThread.isEmpty {
-                QueueView(model: model)
-            }
-
             if !model.attachments.isEmpty {
                 AttachmentStrip(model: model)
             }
@@ -115,8 +111,6 @@ private struct ErrorBanner: View {
 private struct ModelChip: View {
     let model: FlareModel
 
-    @Environment(\.panelNamespace) private var namespace
-
     var body: some View {
         Button {
             withAnimation(Morph.animation) { model.toggleModelPicker() }
@@ -132,9 +126,6 @@ private struct ModelChip: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        // The chip is where the picker grows from and shrinks back to.
-        .morph(Morph.modelPicker, in: namespace, isSource: !model.isModelPickerPresented)
-        .opacity(model.isModelPickerPresented ? 0 : 1)
         .accessibilityLabel("Intelligence")
         .accessibilityValue(ModelLabel.text(for: model.preferences))
         .help("Choose how hard the model thinks")

@@ -11,6 +11,7 @@ public struct PanelContentView: View {
     }
 
     @State private var isDropTargeted = false
+    @State private var composerHeight: CGFloat = 0
     @Namespace private var panelNamespace
 
     public var body: some View {
@@ -21,7 +22,16 @@ public struct PanelContentView: View {
                 Spacer()
             }
             ComposerView(model: model)
+                .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { composerHeight = $0 }
         }
+        .overlay(alignment: .bottom) {
+            // Queued messages float over the chat rather than pushing it up.
+            if !model.queuedForCurrentThread.isEmpty {
+                QueueOverlay(model: model, composerHeight: composerHeight)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
+        .animation(Morph.animation, value: model.queuedForCurrentThread.isEmpty)
         .onDrop(of: [.image, .fileURL], isTargeted: $isDropTargeted) { providers in
             ImageDrop.load(providers) { model.addAttachment($0) }
         }
@@ -50,8 +60,14 @@ public struct PanelContentView: View {
         .animation(Morph.animation, value: model.presentedReasoning?.id)
         .overlay {
             if model.isModelPickerPresented {
+                // Grows out of the chip's corner and shrinks back into it.
                 ModelPickerOverlay(model: model)
-                    .transition(.opacity)
+                    .transition(
+                        .asymmetric(
+                            insertion: .scale(scale: 0.55, anchor: .bottomTrailing).combined(with: .opacity),
+                            removal: .scale(scale: 0.8, anchor: .bottomTrailing).combined(with: .opacity)
+                        )
+                    )
             }
         }
         .animation(Morph.animation, value: model.isModelPickerPresented)
