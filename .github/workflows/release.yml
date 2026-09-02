@@ -13,7 +13,7 @@ env:
   SCHEME: Flare
   APP_NAME: Flare
   TEAM_ID: 4538W4A79B
-  RELEASES_REPO: Aayush9029/releases
+  RELEASES_REPO: Aayush9029/flare-releases
 
 jobs:
   release:

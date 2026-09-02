@@ -2,7 +2,7 @@
 
 Every push to `main` runs `.github/workflows/release.yml`. The workflow builds,
 tests, signs, notarizes, makes a DMG, and publishes a release to
-`Aayush9029/releases`.
+`Aayush9029/flare-releases`.
 
 ## Signing
 
@@ -28,7 +28,7 @@ Holder can do that in the web portal.
 | `ASC_API_KEY_P8` | `~/Secure/secrets/apple-dev/api_key_p8_base64.txt` |
 | `ASC_API_KEY_ID` | `KDZQQND374` |
 | `ASC_API_ISSUER_ID` | `32b44455-4bec-4cb8-8fbf-eb06754dda95` |
-| `RELEASES_TOKEN` | token that can create releases in `Aayush9029/releases` |
+| `RELEASES_TOKEN` | token that can create releases in `Aayush9029/flare-releases` |
 
 The `.p12` carries an empty export password, so the workflow passes `-P ""` and
 there is no password secret.
