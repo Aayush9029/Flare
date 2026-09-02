@@ -62,7 +62,7 @@ struct MessageListView: View {
         .task(id: threadID) { pinToBottom() }
         .overlay {
             if messages.isEmpty, !model.isStreaming {
-                EmptyChatView()
+                EmptyChatView(source: model.responseSource)
             }
         }
     }
@@ -85,6 +85,8 @@ private struct ScrollMetrics: Equatable {
 }
 
 private struct EmptyChatView: View {
+    let source: String
+
     var body: some View {
         ContentUnavailableView {
             Label {
@@ -95,7 +97,7 @@ private struct EmptyChatView: View {
                     .frame(width: 26, height: 30)
             }
         } description: {
-            Text("Answers stream from OpenAI. Every chat stays on this Mac.")
+            Text("Answers stream from \(source). Every chat stays on this Mac.")
         }
     }
 }

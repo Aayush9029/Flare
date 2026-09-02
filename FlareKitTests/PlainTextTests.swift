@@ -45,11 +45,11 @@ struct PlainTextTests {
 struct ToolSelectionTests {
     @Test("Toggles decide which tools go on the request")
     func toolSelection() {
-        #expect(FlareModel.tools(webSearch: false, images: false).isEmpty)
-        #expect(FlareModel.tools(webSearch: true, images: false).map(\.type) == ["web_search"])
-        #expect(FlareModel.tools(webSearch: false, images: true).map(\.type) == ["image_generation"])
+        #expect(ResponsesAPI.tools(webSearch: false, imageGeneration: false).isEmpty)
+        #expect(ResponsesAPI.tools(webSearch: true, imageGeneration: false).map(\.type) == ["web_search"])
+        #expect(ResponsesAPI.tools(webSearch: false, imageGeneration: true).map(\.type) == ["image_generation"])
         #expect(
-            FlareModel.tools(webSearch: true, images: true).map(\.type)
+            ResponsesAPI.tools(webSearch: true, imageGeneration: true).map(\.type)
                 == ["web_search", "image_generation"]
         )
     }

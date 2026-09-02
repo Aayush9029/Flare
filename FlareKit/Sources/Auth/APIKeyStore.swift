@@ -2,35 +2,6 @@ import Dependencies
 import DependenciesMacros
 import Foundation
 
-/// Which credential the user chose. `.automatic` prefers an API key when one is
-/// configured, which is the behaviour most people expect after adding a key.
-public enum CredentialPreference: String, CaseIterable, Sendable {
-    case automatic
-    case chatgpt
-    case apiKey
-
-    public var title: String {
-        switch self {
-        case .automatic: "Automatic"
-        case .chatgpt: "ChatGPT"
-        case .apiKey: "API Key"
-        }
-    }
-
-    public var detail: String {
-        switch self {
-        case .automatic: "Uses the API key when one is set, otherwise ChatGPT."
-        case .chatgpt: "Answers through your ChatGPT subscription. No extra billing."
-        case .apiKey: "Answers through api.openai.com and bills per token."
-        }
-    }
-}
-
-public enum Credentials: Sendable, Equatable {
-    case apiKey(String)
-    case chatgpt(AuthTokens)
-}
-
 @DependencyClient
 public struct APIKeyStore: Sendable {
     public var load: @Sendable () -> String?

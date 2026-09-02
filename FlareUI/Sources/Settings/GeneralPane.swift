@@ -107,7 +107,7 @@ struct GeneralPane: View {
                     Spacer()
                 }
                 .padding(.vertical, 4)
-                Text("Click to turn a tool on or off. The model reaches for them on its own.")
+                Text("Click to turn a tool on or off. The model reaches for them on its own. Web search works with ChatGPT, OpenAI and Claude; images need ChatGPT or OpenAI.")
                     .settingFootnote()
             }
 

@@ -1,13 +1,13 @@
 import FlareKit
 import SwiftUI
 
-/// The slider in a card over the composer, with the chosen stop named above it.
-/// A click anywhere else, Escape, or three seconds after letting go put it away.
+/// The chooser in a card over the composer. A click anywhere else, Escape, or three
+/// seconds after letting go put it away.
 struct ModelPickerOverlay: View {
     let model: FlareModel
+    var onOpenSettings: () -> Void = {}
 
     @Environment(\.colorScheme) private var colorScheme
-    @State private var preview: ModelLevel?
     @State private var dismissal: Task<Void, Never>?
 
     var body: some View {
@@ -50,21 +50,13 @@ struct ModelPickerOverlay: View {
     }
 
     private var card: some View {
-        VStack(spacing: 12) {
-            Text(ModelLabel.text(for: model.preferences, preview: preview))
-                .font(.headline)
-                .contentTransition(.numericText())
-                .animation(.easeOut(duration: 0.12), value: preview)
-            ModelSlider(preferences: model.preferences) { level in
-                preview = level
-                if level != nil { dismissal?.cancel() }
-            } onCommit: {
-                scheduleDismissal()
-            }
-            .padding(.horizontal, 12)
-            Text((preview ?? ModelLevel.matching(model: model.preferences.selectedModel, effort: model.preferences.effectiveEffort))?.detail ?? model.preferences.model.detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        ModelChooser(providers: model.providers) {
+            dismissal?.cancel()
+        } onSettle: {
+            scheduleDismissal()
+        } openSettings: {
+            model.dismissModelPicker()
+            onOpenSettings()
         }
         .padding(.vertical, 16)
         .padding(.horizontal, 12)
@@ -92,16 +84,5 @@ struct ModelPickerOverlay: View {
             guard !Task.isCancelled else { return }
             withAnimation(Morph.animation) { model.dismissModelPicker() }
         }
-    }
-}
-
-enum ModelLabel {
-    /// "5.6 High" for a stop, or the model and effort by name for a custom pairing.
-    @MainActor
-    static func text(for preferences: Preferences, preview: ModelLevel? = nil) -> String {
-        if let level = preview ?? ModelLevel.matching(model: preferences.selectedModel, effort: preferences.effectiveEffort) {
-            return "5.6 \(level.title)"
-        }
-        return "\(preferences.model.shortName) · \(preferences.effectiveEffort.capitalized)"
     }
 }

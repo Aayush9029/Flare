@@ -19,6 +19,8 @@ struct LiveChatTests {
         }
         let chat = withDependencies {
             $0.openAIAuth = auth
+            $0.apiKeyStore = .ephemeral()
+            $0.providerStore = .ephemeral()
         } operation: {
             ChatClient.liveValue
         }
@@ -41,13 +43,13 @@ struct LiveChatTests {
         _ = try await auth.importFromCodexCLI()
 
         let events = try await chat.stream(
-            [ChatTurn(role: "user", text: "Reply with exactly the word PONG and nothing else.")],
-            "gpt-5.6-terra",
-            nil,
-            "Be terse.",
-            [],
-            .automatic,
-            UUID()
+            ChatRequest(
+                endpoint: .chatGPT,
+                model: "gpt-5.6-terra",
+                effort: nil,
+                instructions: "Be terse.",
+                turns: [ChatTurn(role: "user", text: "Reply with exactly the word PONG and nothing else.")]
+            )
         )
 
         var text = ""

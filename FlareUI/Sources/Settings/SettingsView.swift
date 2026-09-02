@@ -41,9 +41,9 @@ public struct SettingsView: View {
     private var pane: some View {
         switch currentTab {
         case .general: GeneralPane(preferences: model.preferences)
-        case .account: AccountPane()
+        case .providers: ProvidersPane(providers: model.providers)
         case .license: LicensePane(model: model.license)
-        case .model: ModelPane(preferences: model.preferences)
+        case .prompt: PromptPane(preferences: model.preferences)
         case .shortcuts: ShortcutsPane()
         case .about: AboutPane()
         }

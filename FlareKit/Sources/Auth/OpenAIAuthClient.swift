@@ -37,7 +37,7 @@ public enum AuthError: LocalizedError, Equatable {
         case .tokenExchangeFailed(let reason):
             "Could not complete sign-in: \(reason)"
         case .notSignedIn:
-            "Sign in with ChatGPT, or add an OpenAI API key, to start a chat."
+            "Sign in with ChatGPT in Settings to start a chat."
         case .noEnvironmentKey:
             "OPENAI_API_KEY is not set in your login shell."
         }
@@ -51,8 +51,6 @@ public struct OpenAIAuthClient: Sendable {
     public var currentAccount: @Sendable () -> Account?
     public var isSignedIn: @Sendable () -> Bool = { false }
     public var signOut: @Sendable () async throws -> Void
-    /// An API key wins when present: it is the credential the user set explicitly.
-    public var credentials: @Sendable (CredentialPreference) async throws -> Credentials
     public var currentAPIKey: @Sendable () -> String?
     public var setAPIKey: @Sendable (String) throws -> Void
     public var clearAPIKey: @Sendable () throws -> Void
@@ -177,20 +175,6 @@ extension OpenAIAuthClient: DependencyKey {
                     _ = try? await URLSession.shared.data(for: request)
                 }
                 try store.clear()
-            },
-
-            credentials: { preference in
-                if preference != .chatgpt, let key = keys.load() { return .apiKey(key) }
-                if preference == .apiKey { throw AuthError.notSignedIn }
-                guard let tokens = store.load() else { throw AuthError.notSignedIn }
-                guard tokens.needsRefresh else { return .chatgpt(tokens) }
-                return .chatgpt(
-                    try await exchange([
-                        "grant_type": "refresh_token",
-                        "refresh_token": tokens.refreshToken,
-                        "client_id": OpenAIOAuth.clientId,
-                    ])
-                )
             },
 
             currentAPIKey: { keys.load() },

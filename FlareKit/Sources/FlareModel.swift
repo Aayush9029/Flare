@@ -10,7 +10,6 @@ import SQLiteData
 public final class FlareModel {
     @ObservationIgnored @Dependency(\.defaultDatabase) private var database
     @ObservationIgnored @Dependency(\.chatClient) private var chatClient
-    @ObservationIgnored @Dependency(\.openAIAuth) private var auth
     @ObservationIgnored @Dependency(\.windowClient) private var windowClient
     @ObservationIgnored @Dependency(\.imageStore) private var imageStore
     @ObservationIgnored @Dependency(\.uuid) private var uuid
@@ -18,6 +17,7 @@ public final class FlareModel {
 
     public let preferences = Preferences()
     public let license = LicenseModel()
+    public let providers: ProviderCatalog
 
     public var statusPlaceholder: String {
         if isGeneratingImage { return "Drawing…" }
@@ -25,13 +25,9 @@ public final class FlareModel {
         return isStreaming ? "Responding…" : "Ask anything"
     }
 
-    /// Which credential answers right now, shown next to the assistant name.
+    /// Which provider answers right now, shown next to the assistant name.
     public var responseSource: String {
-        switch preferences.credentialPreference {
-        case .chatgpt: "Codex"
-        case .apiKey: "API key"
-        case .automatic: auth.currentAPIKey() == nil ? "Codex" : "API key"
-        }
+        providers.active.name
     }
 
     public var selectedThreadID: ChatThread.ID?
@@ -70,7 +66,9 @@ public final class FlareModel {
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var paletteGeneration = 0
 
-    public init() {}
+    public init() {
+        providers = ProviderCatalog(preferences: preferences)
+    }
 
     public func toggle() {
         guard windowClient.isVisible() else { return open() }
@@ -82,6 +80,8 @@ public final class FlareModel {
             windowClient.show()
         }
     }
+
+    public var isPanelVisible: Bool { windowClient.isVisible() }
 
     public func open() {
         if preferences.newThreadOnOpen || selectedThreadID == nil {
@@ -116,7 +116,7 @@ public final class FlareModel {
     public func newThread() {
         cancelStreaming()
         let previous = selectedThreadID
-        let thread = ChatThread(id: ChatThread.ID(uuid()), createdAt: now, updatedAt: now, model: preferences.selectedModel)
+        let thread = ChatThread(id: ChatThread.ID(uuid()), createdAt: now, updatedAt: now, model: providers.selection.model)
         withErrorReporting {
             try database.write { db in
                 try ChatThread.insert { thread }.execute(db)
@@ -284,8 +284,8 @@ public final class FlareModel {
             errorMessage = "Your free trial has ended. Open Settings to buy Flare for $9.99."
             return false
         }
-        guard auth.isSignedIn() else {
-            errorMessage = AuthError.notSignedIn.localizedDescription
+        guard providers.active.isReady else {
+            errorMessage = providers.active.setupMessage
             return false
         }
         errorMessage = nil
@@ -365,19 +365,21 @@ public final class FlareModel {
             return
         }
 
+        let provider = providers.active
+        let selection = providers.selection
+        let webSearch = preferences.webSearchEnabled && provider.supportsWebSearch
         var wasStopped = false
         do {
             let events = try await chatClient.stream(
-                turns,
-                preferences.selectedModel,
-                preferences.effectiveEffort,
-                Self.instructions(
-                    prompt: preferences.systemPrompt,
-                    webSearch: preferences.webSearchEnabled
-                ),
-                Self.tools(webSearch: preferences.webSearchEnabled, images: preferences.imagesEnabled),
-                preferences.credentialPreference,
-                UUID()
+                ChatRequest(
+                    endpoint: provider.endpoint,
+                    model: selection.model,
+                    effort: selection.effort,
+                    instructions: Self.instructions(prompt: preferences.systemPrompt, webSearch: webSearch),
+                    turns: turns,
+                    webSearch: webSearch,
+                    imageGeneration: preferences.imagesEnabled && provider.supportsImageGeneration
+                )
             )
             for try await event in events {
                 switch event {
@@ -487,20 +489,26 @@ public final class FlareModel {
         guard isUntitled == true else { return }
 
         var title = Self.fallbackTitle(prompt)
+        let provider = providers.active
+        let cheapest = provider.titleSelection(current: providers.selection)
         let generated = try? await chatClient.complete(
-            turns: [
-                ChatTurn(
-                    role: "user",
-                    text: """
-                    Title this conversation in 3 to 6 words. Reply with the title only.
+            ChatRequest(
+                endpoint: provider.endpoint,
+                model: cheapest.model,
+                effort: cheapest.effort,
+                instructions: "You write short, specific titles. No quotes, no trailing punctuation.",
+                turns: [
+                    ChatTurn(
+                        role: "user",
+                        text: """
+                        Title this conversation in 3 to 6 words. Reply with the title only.
 
-                    User: \(prompt.prefix(500))
-                    Assistant: \(answer.prefix(500))
-                    """
-                )
-            ],
-            model: ChatModelCatalog.titleModel.id,
-            instructions: "You write short, specific titles. No quotes, no trailing punctuation."
+                        User: \(prompt.prefix(500))
+                        Assistant: \(answer.prefix(500))
+                        """
+                    )
+                ]
+            )
         )
         if let generated {
             let cleaned = Self.cleanTitle(generated)
@@ -516,13 +524,6 @@ public final class FlareModel {
 
     /// Appended at request time rather than baked into the editable prompt, so a
     /// custom prompt keeps working and the toggle takes effect immediately.
-    nonisolated static func tools(webSearch: Bool, images: Bool) -> [ResponsesAPI.Tool] {
-        var tools: [ResponsesAPI.Tool] = []
-        if webSearch { tools.append(.webSearch) }
-        if images { tools.append(.imageGeneration) }
-        return tools
-    }
-
     nonisolated static func instructions(prompt: String, webSearch: Bool) -> String {
         guard webSearch else { return prompt }
         return """

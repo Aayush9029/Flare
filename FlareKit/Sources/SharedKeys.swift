@@ -15,8 +15,18 @@ public extension SharedReaderKey where Self == AppStorageKey<String>.Default {
 }
 
 public extension SharedReaderKey where Self == AppStorageKey<String>.Default {
+    /// The credential choice from before providers, read once to seed `activeProvider`.
     static var credentialPreference: Self {
-        Self[.appStorage("credentialPreference"), default: CredentialPreference.automatic.rawValue]
+        Self[.appStorage("credentialPreference"), default: "automatic"]
+    }
+
+    static var activeProvider: Self {
+        Self[.appStorage("activeProvider"), default: ""]
+    }
+
+    /// The last model and effort used with each provider, as JSON keyed by provider id.
+    static var providerSelections: Self {
+        Self[.appStorage("providerSelections"), default: "{}"]
     }
 
     static var panelPosition: Self {

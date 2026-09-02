@@ -8,6 +8,8 @@ public final class Preferences {
     @ObservationIgnored @Shared(.reasoningEffort) public var reasoningEffort: String
     @ObservationIgnored @Shared(.systemPrompt) public var systemPrompt: String
     @ObservationIgnored @Shared(.credentialPreference) public var credentialPreferenceRaw: String
+    @ObservationIgnored @Shared(.activeProvider) public var activeProvider: String
+    @ObservationIgnored @Shared(.providerSelections) public var providerSelections: String
     @ObservationIgnored @Shared(.showsDockIcon) public var showsDockIcon: Bool
     @ObservationIgnored @Shared(.showsMenuBarIcon) public var showsMenuBarIcon: Bool
     @ObservationIgnored @Shared(.showsReasoning) public var showsReasoning: Bool
@@ -29,23 +31,11 @@ public final class Preferences {
 
     public init() {}
 
-    public var credentialPreference: CredentialPreference {
-        CredentialPreference(rawValue: credentialPreferenceRaw) ?? .automatic
-    }
-
     public var panelPosition: PanelPosition {
         PanelPosition(rawValue: panelPositionRaw) ?? .bottomRight
     }
 
     public var panelSize: PanelSize {
         PanelSize(rawValue: panelSizeRaw) ?? .compact
-    }
-
-    public var model: ChatModelOption {
-        ChatModelCatalog.option(id: selectedModel)
-    }
-
-    public var effectiveEffort: String {
-        model.efforts.contains(reasoningEffort) ? reasoningEffort : (model.efforts.last ?? "medium")
     }
 }

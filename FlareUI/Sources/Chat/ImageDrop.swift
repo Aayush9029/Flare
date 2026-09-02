@@ -1,10 +1,11 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// Turns dropped or pasted items into image data the API accepts: PNG or JPEG,
-/// no longer than 1600 points on a side.
+/// Turns dropped, pasted or captured images into what goes to the model: JPEG at
+/// 80 percent, no longer than 1024 pixels on a side, whatever came in.
 public enum ImageDrop {
-    static let maxSide: CGFloat = 1600
+    static let maxSide: CGFloat = 1024
+    static let quality = 0.8
 
     /// Image data on the pasteboard, when it holds images and no text. Text pastes
     /// belong to the text field.
@@ -13,14 +14,14 @@ public enum ImageDrop {
         var images: [Data] = []
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] {
             for url in urls {
-                if let file = try? Data(contentsOf: url), let image = NSImage(data: file) {
-                    images.append(normalize(image, original: file))
+                if let file = try? Data(contentsOf: url), let normalized = normalize(file) {
+                    images.append(normalized)
                 }
             }
         }
         if images.isEmpty, let data = pasteboard.data(forType: .png) ?? pasteboard.data(forType: .tiff),
-           let image = NSImage(data: data) {
-            images.append(normalize(image, original: data))
+           let normalized = normalize(data) {
+            images.append(normalized)
         }
         return images
     }
@@ -33,16 +34,14 @@ public enum ImageDrop {
                 accepted = true
                 provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier) { item, _ in
                     guard let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil),
-                          let file = try? Data(contentsOf: url), let image = NSImage(data: file)
+                          let file = try? Data(contentsOf: url), let normalized = normalize(file)
                     else { return }
-                    let normalized = normalize(image, original: file)
                     Task { @MainActor in add(normalized) }
                 }
             } else if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
                 accepted = true
                 provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
-                    guard let data, let image = NSImage(data: data) else { return }
-                    let normalized = normalize(image, original: data)
+                    guard let data, let normalized = normalize(data) else { return }
                     Task { @MainActor in add(normalized) }
                 }
             }
@@ -50,26 +49,29 @@ public enum ImageDrop {
         return accepted
     }
 
-    /// Keeps PNG and JPEG as they are when small enough; anything else, or anything
-    /// large, is re-encoded as JPEG at a size the model can use.
-    static func normalize(_ image: NSImage, original: Data) -> Data {
-        let head = [UInt8](original.prefix(4))
-        let isPNG = head.starts(with: [0x89, 0x50, 0x4E, 0x47])
-        let isJPEG = head.starts(with: [0xFF, 0xD8, 0xFF])
-        let size = image.size
-        if (isPNG || isJPEG), max(size.width, size.height) <= maxSide { return original }
-
-        let scale = min(1, maxSide / max(size.width, size.height, 1))
-        let target = NSSize(width: size.width * scale, height: size.height * scale)
+    /// Re-encodes any image as JPEG at 80 percent within 1024 pixels, so a Retina
+    /// screenshot or a camera photo does not go to the model at full weight.
+    public static func normalize(_ original: Data) -> Data? {
+        guard let image = NSImage(data: original) else { return nil }
+        let pixels = image.representations
+            .map { CGSize(width: $0.pixelsWide, height: $0.pixelsHigh) }
+            .max { $0.width * $0.height < $1.width * $1.height }
+            ?? image.size
+        guard pixels.width > 0, pixels.height > 0 else { return nil }
+        let scale = min(1, maxSide / max(pixels.width, pixels.height))
+        let target = NSSize(width: (pixels.width * scale).rounded(), height: (pixels.height * scale).rounded())
         guard let bitmap = NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(target.width), pixelsHigh: Int(target.height),
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
-        ) else { return original }
+        ) else { return nil }
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
-        image.draw(in: NSRect(origin: .zero, size: target), from: .zero, operation: .copy, fraction: 1)
+        // JPEG has no alpha: transparent pixels would otherwise go black.
+        NSColor.white.setFill()
+        NSRect(origin: .zero, size: target).fill()
+        image.draw(in: NSRect(origin: .zero, size: target), from: .zero, operation: .sourceOver, fraction: 1)
         NSGraphicsContext.restoreGraphicsState()
-        return bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) ?? original
+        return bitmap.representation(using: .jpeg, properties: [.compressionFactor: quality])
     }
 }

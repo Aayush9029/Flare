@@ -116,8 +116,9 @@ private struct ModelChip: View {
             withAnimation(Morph.animation) { model.toggleModelPicker() }
         } label: {
             HStack(spacing: 4) {
-                Text(ModelLabel.text(for: model.preferences))
+                Text(model.providers.selectionTitle)
                     .foregroundStyle(.primary)
+                    .lineLimit(1)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 8, weight: .semibold))
                     .foregroundStyle(.secondary)
@@ -126,9 +127,9 @@ private struct ModelChip: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Intelligence")
-        .accessibilityValue(ModelLabel.text(for: model.preferences))
-        .help("Choose how hard the model thinks")
+        .accessibilityLabel("Model")
+        .accessibilityValue(model.providers.selectionTitle)
+        .help("Choose the model and how hard it thinks")
     }
 }
 

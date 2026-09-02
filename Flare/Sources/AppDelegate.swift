@@ -56,6 +56,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in model?.toggle() }
         }
 
+        // The panel steps aside for the crosshair, then comes back with the shot attached.
+        KeyboardShortcuts.onKeyDown(for: .captureToChat) { [weak model] in
+            Task { @MainActor in
+                guard let model else { return }
+                let wasVisible = model.isPanelVisible
+                if wasVisible { model.hide() }
+                guard let shot = await ScreenCapture.interactive(), let image = ImageDrop.normalize(shot) else {
+                    if wasVisible { model.open() }
+                    return
+                }
+                model.addAttachment(image)
+                model.open()
+            }
+        }
+
         // The composer's field editor takes Command-V first and drops anything that
         // is not text, so image pastes are caught before dispatch.
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak model] event in

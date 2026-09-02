@@ -66,20 +66,12 @@ public enum ResponsesAPI {
             }
             if role != "assistant" {
                 for image in images {
-                    parts.append(Content(type: "input_image", imageURL: "data:\(Self.mimeType(of: image));base64,\(image.base64EncodedString())"))
+                    parts.append(Content(type: "input_image", imageURL: "data:\(ImageMIME.type(of: image));base64,\(image.base64EncodedString())"))
                 }
             }
             self.content = parts
         }
 
-        static func mimeType(of data: Data) -> String {
-            let head = [UInt8](data.prefix(12))
-            if head.starts(with: [0x89, 0x50, 0x4E, 0x47]) { return "image/png" }
-            if head.starts(with: [0xFF, 0xD8, 0xFF]) { return "image/jpeg" }
-            if head.starts(with: [0x47, 0x49, 0x46]) { return "image/gif" }
-            if head.count >= 12, head[8...11] == [0x57, 0x45, 0x42, 0x50] { return "image/webp" }
-            return "image/png"
-        }
     }
 
     public struct Content: Encodable {
@@ -99,6 +91,44 @@ public enum ResponsesAPI {
             case imageURL = "image_url"
         }
     }
+}
+
+public extension ResponsesAPI {
+    static func tools(webSearch: Bool, imageGeneration: Bool) -> [Tool] {
+        var tools: [Tool] = []
+        if webSearch { tools.append(.webSearch) }
+        if imageGeneration { tools.append(.imageGeneration) }
+        return tools
+    }
+
+    /// The method, headers and body every Responses request shares, on top of the
+    /// endpoint and credential already set.
+    static func fill(_ base: URLRequest, with chat: ChatRequest) throws -> URLRequest {
+        var request = base
+        request.httpMethod = "POST"
+        request.timeoutInterval = 300
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        let payload = Request(
+            model: chat.model,
+            instructions: chat.instructions,
+            input: chat.turns.map { Item(role: $0.role, text: $0.text, images: $0.images) },
+            reasoning: chat.effort.flatMap { $0 == Effort.none ? nil : Reasoning(effort: $0) },
+            tools: tools(webSearch: chat.webSearch, imageGeneration: chat.imageGeneration)
+        )
+        request.httpBody = try JSONEncoder().encode(payload)
+        return request
+    }
+}
+
+struct ResponsesEventDecoder: StreamDecoder {
+    func decode(_ payload: Data) -> [StreamEvent] {
+        StreamEvent.decode(payload).map { [$0] } ?? []
+    }
+}
+
+extension ResponsesAPI {
+    typealias EventDecoder = ResponsesEventDecoder
 }
 
 public enum StreamEvent: Sendable, Equatable {

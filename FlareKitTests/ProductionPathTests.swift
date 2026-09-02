@@ -19,19 +19,22 @@ struct ProductionPathTests {
         }
     }
 
-    @Test("The live stores on disk resolve to the API key, not the Codex backend")
-    func liveCredentialResolution() async throws {
-        let auth = withDependencies {
-            $0.tokenStore = .liveValue
-            $0.apiKeyStore = .liveValue
+    private func liveChat(auth: OpenAIAuthClient, apiKey: String? = nil) -> ChatClient {
+        withDependencies {
+            $0.openAIAuth = auth
+            $0.apiKeyStore = .ephemeral(apiKey)
+            $0.providerStore = .ephemeral()
         } operation: {
-            OpenAIAuthClient.liveValue
+            ChatClient.liveValue
         }
-        let credential = try await auth.credentials(.automatic)
-        guard case .apiKey = credential else {
-            Issue.record("resolved to \(credential) — the API key on disk should win")
-            return
+    }
+
+    private func text(of chat: ChatClient, _ request: ChatRequest) async throws -> String {
+        var text = ""
+        for try await event in try await chat.stream(request) {
+            if case .outputTextDelta(let delta) = event { text += delta }
         }
+        return text
     }
 
     @Test("Streams through the API-key credential against the public API")
@@ -41,31 +44,17 @@ struct ProductionPathTests {
             ProcessInfo.processInfo.environment["OPENAI_API_KEY"] ?? APIKeyStore.liveValue.load(),
             "set OPENAI_API_KEY or store a key to exercise this path"
         )
-        let auth = withDependencies {
-            $0.apiKeyStore = .ephemeral(key)
-            $0.tokenStore = .ephemeral()
-        } operation: {
-            OpenAIAuthClient.liveValue
-        }
-        #expect(auth.isSignedIn())
-        guard case .apiKey = try await auth.credentials(.automatic) else {
-            Issue.record("expected the API key to take priority")
-            return
-        }
-
-        let chat = withDependencies { $0.openAIAuth = auth } operation: { ChatClient.liveValue }
-        var text = ""
-        for try await event in try await chat.stream(
-            [ChatTurn(role: "user", text: "Reply with exactly: PONG")],
-            ChatModelCatalog.default.id,
-            "medium",
-            "Be terse.",
-            [],
-            .automatic,
-            UUID()
-        ) {
-            if case .outputTextDelta(let delta) = event { text += delta }
-        }
+        let chat = liveChat(auth: liveAuth(), apiKey: key)
+        let text = try await text(
+            of: chat,
+            ChatRequest(
+                endpoint: .openAI,
+                model: ChatModelCatalog.default.id,
+                effort: "medium",
+                instructions: "Be terse.",
+                turns: [ChatTurn(role: "user", text: "Reply with exactly: PONG")]
+            )
+        )
         #expect(text.contains("PONG"))
     }
 
@@ -74,24 +63,22 @@ struct ProductionPathTests {
         let auth = liveAuth()
         try #require(auth.isSignedIn(), "sign in first, or run importFromCodexCLI")
 
-        let chat = withDependencies { $0.openAIAuth = auth } operation: { ChatClient.liveValue }
+        let chat = liveChat(auth: auth)
         let preferences = await Preferences()
         let model = await preferences.selectedModel
-        let effort = await preferences.effectiveEffort
+        let effort = await preferences.reasoningEffort
         let prompt = await preferences.systemPrompt
 
-        var text = ""
-        for try await event in try await chat.stream(
-            [ChatTurn(role: "user", text: "Reply with exactly: PONG")],
-            model,
-            effort,
-            prompt,
-            [],
-            .automatic,
-            UUID()
-        ) {
-            if case .outputTextDelta(let delta) = event { text += delta }
-        }
+        let text = try await text(
+            of: chat,
+            ChatRequest(
+                endpoint: .chatGPT,
+                model: model,
+                effort: effort,
+                instructions: prompt,
+                turns: [ChatTurn(role: "user", text: "Reply with exactly: PONG")]
+            )
+        )
         #expect(text.contains("PONG"))
     }
 
@@ -99,24 +86,22 @@ struct ProductionPathTests {
     func multiTurn() async throws {
         let auth = liveAuth()
         try #require(auth.isSignedIn())
-        let chat = withDependencies { $0.openAIAuth = auth } operation: { ChatClient.liveValue }
+        let chat = liveChat(auth: auth)
 
-        var text = ""
-        for try await event in try await chat.stream(
-            [
-                ChatTurn(role: "user", text: "Say A"),
-                ChatTurn(role: "assistant", text: "A"),
-                ChatTurn(role: "user", text: "Reply with exactly: PONG"),
-            ],
-            ChatModelCatalog.default.id,
-            "medium",
-            Preferences.defaultSystemPrompt,
-            [],
-            .automatic,
-            UUID()
-        ) {
-            if case .outputTextDelta(let delta) = event { text += delta }
-        }
+        let text = try await text(
+            of: chat,
+            ChatRequest(
+                endpoint: .chatGPT,
+                model: ChatModelCatalog.default.id,
+                effort: "medium",
+                instructions: Preferences.defaultSystemPrompt,
+                turns: [
+                    ChatTurn(role: "user", text: "Say A"),
+                    ChatTurn(role: "assistant", text: "A"),
+                    ChatTurn(role: "user", text: "Reply with exactly: PONG"),
+                ]
+            )
+        )
         #expect(text.contains("PONG"))
     }
 
@@ -124,18 +109,19 @@ struct ProductionPathTests {
     func webSearchRuns() async throws {
         let auth = liveAuth()
         try #require(auth.isSignedIn())
-        let chat = withDependencies { $0.openAIAuth = auth } operation: { ChatClient.liveValue }
+        let chat = liveChat(auth: auth)
 
         var searched = false
         var text = ""
         for try await event in try await chat.stream(
-            [ChatTurn(role: "user", text: "Search the web for the current Swift release and answer in one line.")],
-            ChatModelCatalog.default.id,
-            "low",
-            "Use the web when the answer depends on current facts.",
-            [.webSearch],
-            .automatic,
-            UUID()
+            ChatRequest(
+                endpoint: .chatGPT,
+                model: ChatModelCatalog.default.id,
+                effort: "low",
+                instructions: "Use the web when the answer depends on current facts.",
+                turns: [ChatTurn(role: "user", text: "Search the web for the current Swift release and answer in one line.")],
+                webSearch: true
+            )
         ) {
             switch event {
             case .webSearchStarted: searched = true
@@ -151,24 +137,64 @@ struct ProductionPathTests {
     func everyModelAndEffort() async throws {
         let auth = liveAuth()
         try #require(auth.isSignedIn())
-        let chat = withDependencies { $0.openAIAuth = auth } operation: { ChatClient.liveValue }
+        let chat = liveChat(auth: auth)
 
         for option in ChatModelCatalog.all {
             for effort in option.efforts {
-                var text = ""
-                for try await event in try await chat.stream(
-                    [ChatTurn(role: "user", text: "hi")],
-                    option.id,
-                    effort,
-                    "Be terse.",
-                    [],
-                    .automatic,
-                    UUID()
-                ) {
-                    if case .outputTextDelta(let delta) = event { text += delta }
-                }
+                let text = try await text(
+                    of: chat,
+                    ChatRequest(
+                        endpoint: .chatGPT,
+                        model: option.id,
+                        effort: effort,
+                        instructions: "Be terse.",
+                        turns: [ChatTurn(role: "user", text: "hi")]
+                    )
+                )
                 #expect(!text.isEmpty, "\(option.id) / \(effort) returned nothing")
             }
+        }
+    }
+
+    @Test("Claude answers through the Messages API with the stored key")
+    func anthropicPath() async throws {
+        guard let key = ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"] ?? ProviderStore.liveValue.load().key(for: "anthropic"),
+              !key.isEmpty
+        else {
+            print("skipping Claude: set ANTHROPIC_API_KEY or store a key")
+            return
+        }
+        let chat = withDependencies {
+            $0.openAIAuth = .testValue
+            $0.apiKeyStore = .ephemeral()
+            $0.providerStore = .ephemeral(ProviderFile(keys: ["anthropic": key]))
+        } operation: {
+            ChatClient.liveValue
+        }
+        let models = try await ProviderClient.liveValue.listModels(.anthropic, key)
+        let haiku = try #require(models.first { $0.id.contains("haiku") }?.id)
+        let sonnet = models.first { $0.id.hasPrefix("claude-sonnet-5") }?.id ?? haiku
+
+        for (model, effort) in [(haiku, nil), (sonnet, Effort.medium)] {
+            var text = ""
+            var reasoned = false
+            for try await event in try await chat.stream(
+                ChatRequest(
+                    endpoint: .anthropic,
+                    model: model,
+                    effort: effort,
+                    instructions: "Be terse.",
+                    turns: [ChatTurn(role: "user", text: "Reply with exactly: PONG")]
+                )
+            ) {
+                switch event {
+                case .outputTextDelta(let delta): text += delta
+                case .reasoningSummaryDelta: reasoned = true
+                default: break
+                }
+            }
+            #expect(text.contains("PONG"), "\(model) returned \(text)")
+            #expect(reasoned == (effort != nil), "\(model) thinking mismatch")
         }
     }
 }

@@ -57,6 +57,37 @@ drives the chat with no API key and no metered billing.
   backend, so the two are never interchangeable.
 - A GUI launch inherits no shell environment, so `OPENAI_API_KEY` is only visible when Flare is run
   from a terminal. Settings reads it out of the login shell and stores a copy.
+
+## Providers
+
+`ProviderCatalog` owns every provider, which one answers, and the model and effort each one last
+used (`providerSelections`, JSON in app storage). Built-ins in Compose's order: ChatGPT (OAuth,
+Responses at the Codex backend), OpenAI (Responses at api.openai.com), Anthropic (native Messages
+API), Groq, Gemini and OpenRouter (Chat Completions at fixed base URLs), then custom endpoints,
+any Chat Completions server. Keys and listed models for everything but ChatGPT and OpenAI live in
+`providers.json` (0600) keyed by provider id; custom endpoints by UUID. An endpoint added at a
+built-in vendor's URL folds into that vendor's card on load.
+
+- `ChatClient` routes on `ChatEndpoint`: Responses, `AnthropicAPI`, or `ChatCompletionsAPI`. All
+  three decode into the same `StreamEvent`s through `StreamingHTTP`; a stream that ends without
+  saying so still counts as completed, only a cancellation counts as stopped.
+- Reasoning per dialect: Responses `reasoning.effort`; Anthropic `thinking.budget_tokens` (low
+  2048, medium 8192, high 32768, plus 16384 `max_tokens`); Chat Completions `reasoning_effort`,
+  except OpenRouter, which takes `reasoning: {effort}`. Off sends nothing. Thoughts arrive as
+  `reasoning` (OpenRouter, Groq) or `reasoning_content` (vLLM, llama.cpp) deltas, or as `<think>`
+  tags, which `ThinkTagSplitter` only honours before any answer text.
+- Listings come from `/models` in every dialect. OpenRouter says which models reason
+  (`supported_parameters`) and what they take (`architecture` modalities); `ProviderHints` covers
+  vendors that say nothing (Groq gpt-oss, Gemini 2.5 and 3, xAI mini); a word list drops speech,
+  embedding, guard, image and video models. Gemini accepts its `models/...` ids as listed. Vision
+  turns go as `image_url` parts; plain turns stay strings, since a server without vision chokes
+  on parts.
+- A key is kept only after the vendor lists models (OpenAI answers a "hi" instead). A model typed
+  by hand is proven with "What is 2+2?", as Compose does.
+- `NSAllowsArbitraryLoads` and a local-network usage string are in Info.plist for servers on
+  `http://` and on the LAN.
+- Live tests: `LiveProviderTests` runs every vendor it finds a `TEST_RUNNER_<VENDOR>_API_KEY` for.
+  Groq's CDN blocks Python's user agent, not URLSession's.
 - `session_id` is minted per request. Reusing one across a cancelled stream leaves the server-side
   session unreconciled and every later turn in it fails.
 - Refresh omits `scope`; sending a narrower set silently downgrades the access token.
@@ -91,10 +122,11 @@ The Codex backend accepts **`web_search`** and **`image_generation`**. It reject
 `code_interpreter`, `file_search` and `computer_use_preview`, and `local_shell` was removed.
 Both `web_search` and the public API behave the same way here.
 
-Web search is on by default. The guidance that makes the model search unprompted is appended to
-the instructions at request time by `FlareModel.instructions(prompt:webSearch:)` rather than baked
-into the editable system prompt, so a custom prompt keeps working and the toggle takes effect at
-once. Measured behaviour: current facts, news, prices and new APIs search; arithmetic, writing help
+Web search is on by default for ChatGPT, OpenAI and Anthropic (`web_search_20250305`); Chat
+Completions vendors get no tools. The guidance that makes the model search unprompted is appended
+to the instructions at request time by `FlareModel.instructions(prompt:webSearch:)` rather than
+baked into the editable system prompt, so a custom prompt keeps working and the toggle takes
+effect at once. Measured behaviour: current facts, news, prices and new APIs search; arithmetic, writing help
 and stable concepts answer directly.
 
 Citations arrive as `response.output_text.annotation.added` with a `url_citation`. They are shown
@@ -154,10 +186,11 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   Position cards decides where it opens, 16 points in from the edges, `PanelSize` (compact, half,
   full) how tall, with 12 points kept clear under the menu bar, and the Width slider how wide
   (`panelWidth`, 420 to 720 in five stops). A change resizes the panel at once. While Settings has
-  the keyboard the panel itself hides and a ghost of it floats above every window where it would
-  open: translucent, bordered, mouse-transparent, following every change, tracking the width
-  knob while it is in hand, bordered in the slider's blue while the pointer is over it, and
-  leaving with Settings. `windowDidBecomeKey` arrives before AppKit raises the window's key
+  the keyboard the panel itself hides. A ghost of it floats above every window where it would
+  open, translucent, bordered and mouse-transparent, but only once a position, size or width
+  control is touched (the pointer over the width slider counts); it follows every change, tracks
+  the width knob while it is in hand, wears the slider's blue under the pointer, and fades three
+  seconds after the last touch or with Settings. `windowDidBecomeKey` arrives before AppKit raises the window's key
   flag, so the ghost's guard tests visibility, not key status.
 - A hand resize keeps its frame; `windowDidEndLiveResize` moves Width and Size to the nearest
   stops so Settings tells the truth. `PanelHost` adopts the values before the preferences change,
@@ -168,23 +201,35 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   cards, ChatGPT and API Key. Choosing ChatGPT adopts a Codex CLI session when one exists;
   choosing API Key reveals the field. A pasted key is trimmed and must answer a "hi" through
   `verifyAPIKey` before it is kept. The old Automatic value reads as whichever is set up.
-- The composer's model chip opens `ModelSlider` in a card over the composer, after ChatGPT's
-  picker: five stops (`ModelLevel`, Instant to Pro) that each pair a model with an effort. A
-  pairing set elsewhere that matches no stop shows by name. Behind the card a material under a
-  gradient mask frosts the chat from the bottom up. Escape, a click anywhere else, or three
-  seconds after letting go put it away. The track itself is `StopSlider`, shared with the Width
-  slider in Settings.
+- The composer's chip names the model and effort ("5.6 Terra · High") and opens a card over the
+  composer with only the reasoning slider (`EffortSlider` on `StopSlider`, shared with the Width
+  slider) and a link to Settings. The model and the provider are chosen in Settings, not here.
+  Behind the card a material under a gradient mask frosts the chat from the bottom up. Escape, a
+  click anywhere else, or three seconds after letting go put it away.
+- The Providers pane is Compose's AI Provider page (`~/Developer/ldt/compose/compose-macos`,
+  `ModelsSettingsView`) one to one: the credentials card for the chosen provider on top, a
+  two-column grid of `ProviderCard`s, then `ModelCard`s with speed and intelligence bars from
+  `ModelMetadata`, or `GroupedModelPicker` (typed id with VERIFY, search, vendors behind chevrons)
+  once a listing passes twelve. Choosing a provider there makes it answer. `ReasoningCard` under
+  the models is Flare's own. Card tones come from `CardBands`. Keep it aligned when Compose changes.
+- Provider marks are LobeHub's static SVGs in `Flare/Resources/ProviderIcons.xcassets`, template
+  rendered and tinted like text. Their path data was rewritten with the arc flags spaced out:
+  CoreSVG rejects the compact `0 01-4.45` form and drew Gemini as a dot. Add a mark by fetching
+  `https://unpkg.com/@lobehub/icons-static-svg@latest/icons/<name>.svg` and running it through the
+  same normalisation; `ProviderIcon` maps hosts and local ports to names.
 - Resources under `Flare/Resources/` are globbed at `tuist generate` time. A new file such as the
   `desktop.jpg` wallpaper thumbnail, one image for both appearances, is invisible to the build
   until the project is regenerated.
 - Settings sections and cards sit on `.ultraThinMaterial` so the window's glass shows through; the
   grouped form's own section fill is opaque.
-- Images reach the composer by drop on the panel or by paste. The composer's field editor takes
-  Command-V first and drops anything that is not text, so `AppDelegate` catches an image paste in
-  a local key monitor and hands it to `FlareModel.addAttachment`. `ImageDrop` keeps PNG and JPEG
-  under 1600 points as they are and re-encodes the rest as JPEG. Attachments go out as
-  `input_image` data URLs and are stored on the user message as `|`-separated names in
-  `imageFile`, which `MessageRow` shows as thumbnails and later turns re-send.
+- Images reach the composer by drop on the panel, by paste, or by ⌘⇧C (`captureToChat`), which
+  hides the panel, runs `screencapture -i`, attaches the shot and opens the panel again. The
+  composer's field editor takes Command-V first and drops anything that is not text, so
+  `AppDelegate` catches an image paste in a local key monitor and hands it to
+  `FlareModel.addAttachment`. `ImageDrop` re-encodes everything as JPEG at 80 percent within 1024
+  pixels, on white, so a Retina shot does not go out at full weight. Attachments go out as image
+  parts and are stored on the user message as `|`-separated names in `imageFile`, which
+  `MessageRow` shows as thumbnails and later turns re-send.
 - `PanelScrim` sits at 30 percent black and 42 percent white: enough to read prose over a busy
   desktop, thin enough that the glass still shows.
 - User messages have no bubble. The muted colour marks the turn, and both sides share one margin.

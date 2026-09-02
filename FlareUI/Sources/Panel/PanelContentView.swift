@@ -62,7 +62,7 @@ public struct PanelContentView: View {
         }
         .animation(Morph.animation, value: model.presentedReasoning?.id)
         // Always present, so the band and the card can each enter their own way.
-        .overlay { ModelPickerOverlay(model: model) }
+        .overlay { ModelPickerOverlay(model: model, onOpenSettings: onOpenSettings) }
         .environment(\.panelNamespace, panelNamespace)
         .background(PanelScrim())
         // The panel has no title bar; any spot that nothing else claims drags it.

@@ -108,7 +108,7 @@ struct LicensePane: View {
     @ViewBuilder
     private var actionButtons: some View {
         if case .trial = model.status {
-            Button("BUY FLARE — $9.99") { model.buy() }
+            Button("BUY FLARE · $9.99") { model.buy() }
                 .buttonStyle(.plain)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.purple)
@@ -150,7 +150,7 @@ struct LicensePane: View {
             .disabled(!hasEnteredKey || model.isWorking)
 
             if !hasEnteredKey {
-                Button("BUY FLARE — $9.99") { model.buy() }
+                Button("BUY FLARE · $9.99") { model.buy() }
                     .buttonStyle(.plain)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)

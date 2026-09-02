@@ -1,12 +1,11 @@
 import Dependencies
 import DependenciesMacros
 import Foundation
-import os
 
 public struct ChatTurn: Sendable, Equatable {
     public var role: String
     public var text: String
-    /// Encoded image files a user turn carries, sent as `input_image` parts.
+    /// Encoded image files a user turn carries.
     public var images: [Data]
     public init(role: String, text: String, images: [Data] = []) {
         self.role = role
@@ -16,41 +15,31 @@ public struct ChatTurn: Sendable, Equatable {
 }
 
 public enum ChatError: LocalizedError, Equatable {
-    case unauthorized
-    case rateLimited
-    case server(Int, String)
+    case unauthorized(String)
+    case rateLimited(String)
+    case missingCredential(String)
+    case server(String, Int, String)
 
     public var errorDescription: String? {
         switch self {
-        case .unauthorized: "Your ChatGPT session expired. Sign in again from Settings."
-        case .rateLimited: "You hit the ChatGPT rate limit. Wait a moment and try again."
-        case .server(let code, let body): "The Codex backend returned \(code): \(body)"
+        case .unauthorized("ChatGPT"): "Your ChatGPT session expired. Sign in again from Settings."
+        case .unauthorized(let name): "\(name) rejected the key. Check it in Settings."
+        case .rateLimited(let name): "\(name) is rate limiting you. Wait a moment and try again."
+        case .missingCredential(let name): "Add a key for \(name) in Settings."
+        case .server(let name, let code, let body): "\(name) returned \(code): \(body)"
         }
     }
 }
 
 @DependencyClient
 public struct ChatClient: Sendable {
-    public var stream: @Sendable (
-        _ turns: [ChatTurn],
-        _ model: String,
-        _ effort: String?,
-        _ instructions: String,
-        _ tools: [ResponsesAPI.Tool],
-        _ preference: CredentialPreference,
-        _ sessionId: UUID
-    ) async throws -> AsyncThrowingStream<StreamEvent, Error>
+    public var stream: @Sendable (ChatRequest) async throws -> AsyncThrowingStream<StreamEvent, Error>
 }
 
 public extension ChatClient {
-    func complete(
-        turns: [ChatTurn],
-        model: String,
-        instructions: String,
-        sessionId: UUID = UUID()
-    ) async throws -> String {
+    func complete(_ request: ChatRequest) async throws -> String {
         var text = ""
-        for try await event in try await stream(turns, model, nil, instructions, [], .automatic, sessionId) {
+        for try await event in try await stream(request) {
             if case .outputTextDelta(let delta) = event { text += delta }
         }
         return text
@@ -59,93 +48,85 @@ public extension ChatClient {
 
 extension ChatClient: DependencyKey {
     // A ChatGPT subscription is only honoured by the Codex backend; an API key is
-    // only honoured by the public API. The credential decides the endpoint.
+    // only honoured by the public API. The endpoint follows the credential.
     static let codexURL = URL(string: "https://chatgpt.com/backend-api/codex/responses")!
     static let apiURL = URL(string: "https://api.openai.com/v1/responses")!
-    static let logger = Logger(subsystem: "ca.optimalapps.flare", category: "chat")
 
     public static var liveValue: Self {
         @Dependency(\.openAIAuth) var auth
+        @Dependency(\.apiKeyStore) var keys
+        @Dependency(\.providerStore) var providers
 
         return Self(
-            stream: { turns, model, effort, instructions, tools, preference, sessionId in
-                let credentials = try await auth.credentials(preference)
-
-                var request: URLRequest
-                switch credentials {
-                case .apiKey(let key):
-                    request = URLRequest(url: apiURL)
-                    request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-
-                case .chatgpt(let tokens):
-                    request = URLRequest(url: codexURL)
-                    request.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
-                    request.setValue("responses=experimental", forHTTPHeaderField: "OpenAI-Beta")
-                    request.setValue("codex_cli_rs", forHTTPHeaderField: "originator")
-                    request.setValue(sessionId.uuidString, forHTTPHeaderField: "session_id")
+            stream: { chat in
+                let request: URLRequest
+                let name: String
+                switch chat.endpoint {
+                case .chatGPT:
+                    name = "ChatGPT"
+                    let tokens = try await auth.validTokens()
+                    var codex = URLRequest(url: codexURL)
+                    codex.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
+                    codex.setValue("responses=experimental", forHTTPHeaderField: "OpenAI-Beta")
+                    codex.setValue("codex_cli_rs", forHTTPHeaderField: "originator")
+                    codex.setValue(chat.sessionID.uuidString, forHTTPHeaderField: "session_id")
                     if let accountId = tokens.accountId ?? tokens.account?.accountId {
-                        request.setValue(accountId, forHTTPHeaderField: "chatgpt-account-id")
+                        codex.setValue(accountId, forHTTPHeaderField: "chatgpt-account-id")
                     }
-                }
+                    request = try ResponsesAPI.fill(codex, with: chat)
 
-                request.httpMethod = "POST"
-                request.timeoutInterval = 300
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                case .openAI:
+                    name = "OpenAI"
+                    guard let key = keys.load() else { throw ChatError.missingCredential(name) }
+                    var api = URLRequest(url: apiURL)
+                    api.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+                    request = try ResponsesAPI.fill(api, with: chat)
 
-                let payload = ResponsesAPI.Request(
-                    model: model,
-                    instructions: instructions,
-                    input: turns.map { ResponsesAPI.Item(role: $0.role, text: $0.text, images: $0.images) },
-                    reasoning: effort.map(ResponsesAPI.Reasoning.init(effort:)),
-                    tools: tools
-                )
-                request.httpBody = try JSONEncoder().encode(payload)
-
-                let (bytes, response) = try await URLSession.shared.bytes(for: request)
-                guard let http = response as? HTTPURLResponse else {
-                    throw ChatError.server(-1, "no response")
-                }
-                switch http.statusCode {
-                case 200..<300: break
-                case 401, 403: throw ChatError.unauthorized
-                case 429: throw ChatError.rateLimited
-                default:
-                    var body = ""
-                    for try await line in bytes.lines where body.count < 2000 { body += line }
-                    let shown = String(body.prefix(200))
-                    logger.error(
-                        """
-                        \(http.statusCode, privacy: .public) from \(request.url?.host() ?? "?", privacy: .public)
-                        request: \(String(decoding: request.httpBody ?? Data(), as: UTF8.self), privacy: .public)
-                        response: \(body, privacy: .public)
-                        """
+                case .anthropic:
+                    name = "Claude"
+                    guard let key = providers.load().key(for: ProviderKind.anthropic.rawValue) else {
+                        throw ChatError.missingCredential(name)
+                    }
+                    request = try AnthropicAPI.urlRequest(
+                        key: key,
+                        body: AnthropicAPI.Request(
+                            model: chat.model,
+                            effort: chat.effort,
+                            instructions: chat.instructions,
+                            turns: chat.turns,
+                            webSearch: chat.webSearch
+                        )
                     )
-                    throw ChatError.server(http.statusCode, shown)
+
+                case .compatible(let baseURL, let id):
+                    let file = providers.load()
+                    name = ProviderKind(rawValue: id)?.title
+                        ?? file.custom.first { $0.id.uuidString == id }?.name
+                        ?? baseURL.host()
+                        ?? "The server"
+                    let isOpenRouter = chat.endpoint.isOpenRouter
+                    request = try ChatCompletionsAPI.urlRequest(
+                        baseURL: baseURL,
+                        key: file.key(for: id) ?? "",
+                        body: ChatCompletionsAPI.Request(
+                            model: chat.model,
+                            effort: chat.effort,
+                            instructions: chat.instructions,
+                            turns: chat.turns,
+                            isOpenRouter: isOpenRouter
+                        ),
+                        isOpenRouter: isOpenRouter
+                    )
                 }
 
-                return AsyncThrowingStream { continuation in
-                    let task = Task {
-                        var parser = SSEParser()
-                        var chunk = Data()
-                        do {
-                            for try await byte in bytes {
-                                chunk.append(byte)
-                                guard byte == 0x0A else { continue }
-                                let payloads = parser.consume(chunk)
-                                chunk.removeAll(keepingCapacity: true)
-                                for payload in payloads {
-                                    guard let event = StreamEvent.decode(payload) else { continue }
-                                    continuation.yield(event)
-                                    if case .completed = event { continuation.finish(); return }
-                                }
-                            }
-                            continuation.finish()
-                        } catch {
-                            continuation.finish(throwing: error)
-                        }
-                    }
-                    continuation.onTermination = { _ in task.cancel() }
+                let bytes = try await StreamingHTTP.open(request, provider: name)
+                switch chat.endpoint {
+                case .chatGPT, .openAI:
+                    return StreamingHTTP.events(from: bytes, decoder: ResponsesAPI.EventDecoder())
+                case .anthropic:
+                    return StreamingHTTP.events(from: bytes, decoder: AnthropicAPI.EventDecoder())
+                case .compatible:
+                    return StreamingHTTP.events(from: bytes, decoder: ChatCompletionsAPI.EventDecoder())
                 }
             }
         )
@@ -156,7 +137,7 @@ extension ChatClient: TestDependencyKey {
     public static let testValue = Self()
 
     public static func echo(_ text: String) -> Self {
-        Self(stream: { _, _, _, _, _, _, _ in
+        Self(stream: { _ in
             AsyncThrowingStream { continuation in
                 Task {
                     for word in text.split(separator: " ", omittingEmptySubsequences: false) {

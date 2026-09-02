@@ -21,7 +21,7 @@ struct MessageRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            RoleLabel(role: message.role, source: model.responseSource, isStreaming: isStreaming)
+            RoleLabel(role: message.role, source: model.responseSource, icon: model.providers.active.icon, isStreaming: isStreaming)
 
             if message.role == .user {
                 // No bubble: the muted colour marks the turn, and both sides share one margin.
@@ -143,6 +143,7 @@ struct CitationRow: View {
 private struct RoleLabel: View {
     let role: ChatMessage.Role
     let source: String
+    var icon: String?
     var isStreaming = false
 
     var body: some View {
@@ -161,6 +162,10 @@ private struct RoleLabel: View {
                 .shimmer(isActive: isStreaming)
                 Text("·")
                     .foregroundStyle(.tertiary)
+                if let icon {
+                    ProviderGlyph(icon: icon, symbol: "", size: 9)
+                        .foregroundStyle(.secondary)
+                }
                 Text(source)
                     .foregroundStyle(.secondary)
             }

@@ -123,6 +123,7 @@ private final class PanelHost: NSObject, NSWindowDelegate {
     }
     private var ghost: NSWindow?
     private var ghostWidth: CGFloat?
+    private var ghostFade: Task<Void, Never>?
     private var size = PanelSize.compact
     private var width = PanelSize.defaultWidth
     private var hasAppliedSize = false
@@ -216,27 +217,29 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         updateGhost()
     }
 
+    /// The pointer over the width slider counts as intent: the ghost comes up in blue.
     func tintGhost(_ tint: GhostTint) {
+        if tint != .standard { updateGhost() }
         (ghost?.contentView as? GhostPanelView)?.tint = tint
+        if tint == .standard { scheduleGhostFade() }
     }
 
-    /// While Settings has the keyboard, the panel itself steps aside and a ghost of
-    /// it floats above every window where it would open: translucent, bordered, deaf
-    /// to the mouse, and thin enough to read Settings through.
+    /// While Settings has the keyboard, the panel itself steps aside. The ghost only
+    /// appears once a position, size or width control is touched.
     private func settingsDidBecomeKey() {
         if let panel, panel.isVisible {
             panel.orderOut(nil)
             onResign?()
         }
-        updateGhost()
     }
 
     private func settingsDidResignKey() {
-        ghost?.orderOut(nil)
+        hideGhost()
     }
 
-    /// Called from `windowDidBecomeKey`, where AppKit has not yet raised the window's
-    /// key flag, so visibility is the test; resign and close take the ghost down.
+    /// A ghost of the panel floats above every window where it would open:
+    /// translucent, bordered, deaf to the mouse, and thin enough to read Settings
+    /// through. It leaves a few seconds after the last touch.
     private func updateGhost() {
         guard let settingsWindow, settingsWindow.isVisible,
               let screen = settingsWindow.screen ?? screenUnderPointer()
@@ -249,6 +252,24 @@ private final class PanelHost: NSObject, NSWindowDelegate {
             window.setFrame(frame, display: true)
             window.orderFrontRegardless()
         }
+        scheduleGhostFade()
+    }
+
+    private func scheduleGhostFade() {
+        ghostFade?.cancel()
+        // A knob still in hand keeps the ghost up.
+        guard ghostWidth == nil else { return }
+        ghostFade = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            self?.hideGhost()
+        }
+    }
+
+    private func hideGhost() {
+        ghostFade?.cancel()
+        ghostFade = nil
+        ghost?.orderOut(nil)
     }
 
     private func makeGhost() -> NSWindow {
@@ -369,7 +390,7 @@ private final class PanelHost: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow, window === settingsWindow else { return }
-        ghost?.orderOut(nil)
+        hideGhost()
     }
 }
 

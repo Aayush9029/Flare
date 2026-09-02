@@ -7,6 +7,9 @@ struct ShortcutsPane: View {
         SettingsForm {
             Section("Global") {
                 KeyboardShortcuts.Recorder("Show Flare", name: .toggleFlare)
+                KeyboardShortcuts.Recorder("Capture to chat", name: .captureToChat)
+                Text("Capture opens the screenshot crosshair. The area you pick lands in the composer, ready for a question.")
+                    .settingFootnote()
             }
 
             Section("In the Panel") {

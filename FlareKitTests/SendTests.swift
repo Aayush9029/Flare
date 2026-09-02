@@ -13,10 +13,11 @@ struct SendTests {
         withDependencies {
             try! $0.bootstrapDatabase()
             $0.chatClient = .echo(reply)
-            $0.openAIAuth = .testValue
-            $0.openAIAuth.isSignedIn = { true }
             $0.windowClient = .testValue
-            $0.apiKeyStore = .ephemeral()
+            $0.tokenStore = .ephemeral()
+            $0.apiKeyStore = .ephemeral("sk-test")
+            $0.providerStore = .ephemeral()
+            $0.providerClient = .listing([])
             $0.uuid = .incrementing
             $0.date = .init { Date() }
             $0.licenseStore = .ephemeral(key: "FLARE-TEST", activationID: "act_1")
@@ -188,10 +189,11 @@ struct SendTests {
         let model = withDependencies {
             try! $0.bootstrapDatabase()
             $0.chatClient = .echo("nope")
-            $0.openAIAuth = .testValue
-            $0.openAIAuth.isSignedIn = { false }
             $0.windowClient = .testValue
+            $0.tokenStore = .ephemeral()
             $0.apiKeyStore = .ephemeral()
+            $0.providerStore = .ephemeral()
+            $0.providerClient = .listing([])
             $0.uuid = .incrementing
             $0.date = .init { Date() }
             $0.licenseStore = .ephemeral(key: "FLARE-TEST", activationID: "act_1")
@@ -235,6 +237,10 @@ struct LiveSendTests {
         let model = withDependencies {
             try! $0.bootstrapDatabase()
             $0.openAIAuth = auth
+            $0.tokenStore = .liveValue
+            $0.apiKeyStore = .liveValue
+            $0.providerStore = .liveValue
+            $0.providerClient = .liveValue
             $0.chatClient = withDependencies { $0.openAIAuth = auth } operation: { ChatClient.liveValue }
             $0.windowClient = .testValue
             $0.uuid = .incrementing
