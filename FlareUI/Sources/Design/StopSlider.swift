@@ -5,6 +5,7 @@ import SwiftUI
 struct StopSlider: View {
     let count: Int
     let index: Int
+    var tint: [Color] = [Color(red: 0.62, green: 0.44, blue: 1.0), Color(red: 0.50, green: 0.30, blue: 0.95)]
     var onPreview: (Int?) -> Void = { _ in }
     let onCommit: (Int) -> Void
 
@@ -26,13 +27,7 @@ struct StopSlider: View {
                 Capsule()
                     .fill(.primary.opacity(0.10))
                 Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(red: 0.62, green: 0.44, blue: 1.0), Color(red: 0.50, green: 0.30, blue: 0.95)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
+                    .fill(LinearGradient(colors: tint, startPoint: .leading, endPoint: .trailing))
                     .frame(width: knobX + inset)
                 ForEach(0..<count, id: \.self) { stop in
                     Circle()
@@ -47,7 +42,8 @@ struct StopSlider: View {
                     .position(x: knobX, y: height / 2)
             }
             .contentShape(.rect)
-            .gesture(
+            // High priority: inside a form row the list would otherwise claim the drag.
+            .highPriorityGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { gesture in
                         let raw = Double((gesture.location.x - inset) / span) * last

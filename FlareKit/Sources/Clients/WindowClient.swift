@@ -100,7 +100,11 @@ private final class PanelHost: NSObject, NSWindowDelegate {
     private var isMenuTracking = false
     var staysOnTop = false
     var remembersPosition = true
-    var position = PanelPosition.bottomRight
+    var position = PanelPosition.bottomRight {
+        didSet { if oldValue != position { showPlacementPreview() } }
+    }
+    private var preview: NSWindow?
+    private var previewHide: DispatchWorkItem?
     private var size = PanelSize.compact
     private var width = PanelSize.defaultWidth
     private var hasAppliedSize = false
@@ -173,6 +177,7 @@ private final class PanelHost: NSObject, NSWindowDelegate {
             return
         }
         reposition()
+        showPlacementPreview()
     }
 
     func setWidth(_ width: CGFloat) {
@@ -183,6 +188,65 @@ private final class PanelHost: NSObject, NSWindowDelegate {
             return
         }
         reposition()
+        showPlacementPreview()
+    }
+
+    /// An outline where the panel would open, for a moment, while a Settings choice
+    /// changes. Nothing to click: it ignores the mouse and fades on its own.
+    private func showPlacementPreview() {
+        // Centered, the outline would sit over the Settings window itself.
+        guard position != .center, let screen = screenUnderPointer() else { return }
+        let frame = placementFrame(on: screen)
+        let window = preview ?? makePreviewWindow()
+        window.setFrame(frame, display: true, animate: window.isVisible)
+        window.alphaValue = 1
+        window.orderFrontRegardless()
+        previewHide?.cancel()
+        let hide = DispatchWorkItem { [weak window] in
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.35
+                window?.animator().alphaValue = 0
+            } completionHandler: {
+                window?.orderOut(nil)
+            }
+        }
+        previewHide = hide
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6, execute: hide)
+    }
+
+    private func makePreviewWindow() -> NSWindow {
+        let window = NSWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.ignoresMouseEvents = true
+        window.level = .floating
+        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+        window.contentView = PlacementOutlineView()
+        preview = window
+        return window
+    }
+
+    /// The frame `reposition()` would give the panel on this screen.
+    private func placementFrame(on screen: NSScreen) -> NSRect {
+        let visible = screen.visibleFrame
+        let minimum = panel?.minSize.height ?? 420
+        let frame = NSSize(
+            width: min(self.width, visible.width - 32),
+            height: self.size.height(in: visible.height, minimum: minimum)
+        )
+        let gap: CGFloat = 16
+        let origin: NSPoint = switch position {
+        case .bottomLeft:
+            NSPoint(x: visible.minX + gap, y: visible.minY + gap)
+        case .bottomRight:
+            NSPoint(x: visible.maxX - frame.width - gap, y: visible.minY + gap)
+        case .center:
+            NSPoint(x: visible.midX - frame.width / 2, y: visible.maxY - PanelSize.topGap - (visible.height - PanelSize.topGap - gap + frame.height) / 2)
+        }
+        let x = min(max(origin.x, visible.minX), max(visible.maxX - frame.width, visible.minX))
+        let y = min(max(origin.y, visible.minY + gap), max(visible.maxY - PanelSize.topGap - frame.height, visible.minY))
+        return NSRect(origin: NSPoint(x: x, y: y), size: frame)
     }
 
     private func screenUnderPointer() -> NSScreen? {
@@ -196,24 +260,7 @@ private final class PanelHost: NSObject, NSWindowDelegate {
 
     func reposition() {
         guard let panel, let screen = (panel.isVisible ? panel.screen : nil) ?? screenUnderPointer() else { return }
-        let visible = screen.visibleFrame
-        let frame = NSSize(
-            width: min(self.width, visible.width - 32),
-            height: self.size.height(in: visible.height, minimum: panel.minSize.height)
-        )
-        // Clamped so a short display or an enlarged panel stays on screen.
-        let gap: CGFloat = 16
-        let origin: NSPoint = switch position {
-        case .bottomLeft:
-            NSPoint(x: visible.minX + gap, y: visible.minY + gap)
-        case .bottomRight:
-            NSPoint(x: visible.maxX - frame.width - gap, y: visible.minY + gap)
-        case .center:
-            NSPoint(x: visible.midX - frame.width / 2, y: visible.maxY - PanelSize.topGap - (visible.height - PanelSize.topGap - gap + frame.height) / 2)
-        }
-        let x = min(max(origin.x, visible.minX), max(visible.maxX - frame.width, visible.minX))
-        let y = min(max(origin.y, visible.minY + gap), max(visible.maxY - PanelSize.topGap - frame.height, visible.minY))
-        panel.setFrame(NSRect(origin: NSPoint(x: x, y: y), size: frame), display: true, animate: panel.isVisible)
+        panel.setFrame(placementFrame(on: screen), display: true, animate: panel.isVisible)
     }
 
     func showSettings(_ content: NSView) {
@@ -253,5 +300,18 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         guard settingsWindow?.isKeyWindow != true else { return }
         hide()
         onResign?()
+    }
+}
+
+/// A rounded outline with a faint fill, drawn in the accent colour.
+private final class PlacementOutlineView: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        let rect = bounds.insetBy(dx: 2, dy: 2)
+        let path = NSBezierPath(roundedRect: rect, xRadius: 20, yRadius: 20)
+        NSColor.controlAccentColor.withAlphaComponent(0.10).setFill()
+        path.fill()
+        NSColor.controlAccentColor.setStroke()
+        path.lineWidth = 2
+        path.stroke()
     }
 }

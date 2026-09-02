@@ -24,7 +24,11 @@ struct WidthSlider: View {
                     .contentTransition(.numericText())
                     .animation(.easeOut(duration: 0.12), value: preview)
             }
-            StopSlider(count: widths.count, index: settled) { stop in
+            StopSlider(
+                count: widths.count,
+                index: settled,
+                tint: [Color(red: 0.30, green: 0.62, blue: 1.0), Color(red: 0.15, green: 0.48, blue: 0.98)]
+            ) { stop in
                 preview = stop
             } onCommit: { stop in
                 preferences.$panelWidth.withLock { $0 = Int(widths[stop]) }
