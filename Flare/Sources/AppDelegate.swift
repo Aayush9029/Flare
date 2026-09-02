@@ -84,11 +84,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image?.accessibilityDescription = "Flare"
 
         let menu = NSMenu()
-        menu.addItem(
+        let show = menu.addItem(
             withTitle: "Show Flare",
             action: #selector(showPanel),
             keyEquivalent: ""
-        ).target = self
+        )
+        show.target = self
+        // The item shows the hotkey as its key equivalent and follows it when changed.
+        show.setShortcut(for: .toggleFlare)
         menu.addItem(
             withTitle: "New Chat",
             action: #selector(newChat),
