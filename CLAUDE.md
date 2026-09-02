@@ -170,9 +170,10 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   `verifyAPIKey` before it is kept. The old Automatic value reads as whichever is set up.
 - The composer's model chip opens `ModelSlider` in a card over the composer, after ChatGPT's
   picker: five stops (`ModelLevel`, Instant to Pro) that each pair a model with an effort. A
-  pairing set elsewhere that matches no stop shows by name. Escape, a click anywhere else, or
-  three seconds after letting go put it away. The track itself is `StopSlider`, shared with the
-  Width slider in Settings.
+  pairing set elsewhere that matches no stop shows by name. Behind the card a material under a
+  gradient mask frosts the chat from the bottom up. Escape, a click anywhere else, or three
+  seconds after letting go put it away. The track itself is `StopSlider`, shared with the Width
+  slider in Settings.
 - Resources under `Flare/Resources/` are globbed at `tuist generate` time. A new file such as the
   `desktop.jpg` wallpaper thumbnail, one image for both appearances, is invisible to the build
   until the project is regenerated.

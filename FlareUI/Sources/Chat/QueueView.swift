@@ -46,13 +46,7 @@ private struct QueueRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Text("\(index)")
-                .font(.caption2.weight(.bold))
-                .monospacedDigit()
-                .frame(width: 18, height: 18)
-                .background(isNext ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary.opacity(0.12)), in: .circle)
-                .foregroundStyle(isNext ? .white : .secondary)
-                .shimmer(isActive: isNext)
+            OrbBadge(number: index, isLit: isNext)
             VStack(alignment: .leading, spacing: 2) {
                 if !item.text.isEmpty {
                     Text(item.text)
@@ -85,5 +79,48 @@ private struct QueueRow: View {
                 .strokeBorder(isNext ? AnyShapeStyle(.tint.opacity(0.5)) : AnyShapeStyle(.primary.opacity(0.08)), lineWidth: 1)
         }
         .onHover { isHovering = $0 }
+    }
+}
+
+/// A numbered orb: a radial fill lit from the upper left, a specular glint, and a
+/// soft shadow. Tinted for the message that goes next, grey for the rest.
+private struct OrbBadge: View {
+    let number: Int
+    let isLit: Bool
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let size: CGFloat = 22
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: isLit
+                            ? [Color(red: 0.80, green: 0.66, blue: 1.0), Color(red: 0.46, green: 0.26, blue: 0.92)]
+                            : [Color.primary.opacity(colorScheme == .dark ? 0.35 : 0.22), Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.08)],
+                        center: UnitPoint(x: 0.32, y: 0.28),
+                        startRadius: 1,
+                        endRadius: size * 0.75
+                    )
+                )
+            Circle()
+                .strokeBorder(.white.opacity(isLit ? 0.35 : 0.18), lineWidth: 0.8)
+            Ellipse()
+                .fill(.white.opacity(isLit ? 0.55 : 0.35))
+                .frame(width: size * 0.42, height: size * 0.26)
+                .blur(radius: 1.2)
+                .offset(x: -size * 0.16, y: -size * 0.26)
+            Text("\(number)")
+                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(isLit ? .white : .secondary)
+                .shadow(color: .black.opacity(isLit ? 0.25 : 0), radius: 1, y: 0.5)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: (isLit ? Color(red: 0.46, green: 0.26, blue: 0.92) : .black).opacity(isLit ? 0.45 : 0.18), radius: isLit ? 5 : 2, y: 2)
+        .shimmer(isActive: isLit)
+        .accessibilityHidden(true)
     }
 }

@@ -46,7 +46,6 @@ public struct PanelContentView: View {
             }
         }
         .animation(.easeOut(duration: 0.2), value: model.presentedReasoning?.id)
-        .blur(radius: model.isModelPickerPresented ? 6 : 0)
         .overlay {
             if model.isModelPickerPresented {
                 ModelPickerOverlay(model: model)

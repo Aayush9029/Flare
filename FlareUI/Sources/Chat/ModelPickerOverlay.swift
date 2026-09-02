@@ -12,7 +12,22 @@ struct ModelPickerOverlay: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Color.black.opacity(0.001)
+            // A material under a gradient mask: clear at the top, frosted where the
+            // card sits, so the chat fades out toward the picker rather than all at once.
+            Rectangle()
+                .fill(.regularMaterial)
+                .mask {
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: .clear, location: 0.25),
+                            .init(color: .black, location: 0.7),
+                            .init(color: .black, location: 1),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
                 .contentShape(.rect)
                 .onTapGesture { model.dismissModelPicker() }
 
