@@ -49,7 +49,7 @@ struct LicensePane: View {
             HStack(spacing: 16) {
                 actionButtons
                 Spacer()
-                Text(model.isUnlocked ? "One-time purchase · up to 3 Macs" : "$9.99 once · up to 3 Macs")
+                Text(model.isUnlocked ? "One-time purchase · up to 3 Macs" : "$19.99 once · up to 3 Macs")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -108,7 +108,7 @@ struct LicensePane: View {
     @ViewBuilder
     private var actionButtons: some View {
         if case .trial = model.status {
-            Button("BUY FLARE · $9.99") { model.buy() }
+            Button("BUY FLARE · $19.99") { model.buy() }
                 .buttonStyle(.plain)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.purple)
@@ -150,7 +150,7 @@ struct LicensePane: View {
             .disabled(!hasEnteredKey || model.isWorking)
 
             if !hasEnteredKey {
-                Button("BUY FLARE · $9.99") { model.buy() }
+                Button("BUY FLARE · $19.99") { model.buy() }
                     .buttonStyle(.plain)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -161,13 +161,13 @@ struct LicensePane: View {
     private var helpMessage: String {
         switch model.status {
         case .trial(let daysLeft):
-            "You have \(daysLeft) day\(daysLeft == 1 ? "" : "s") of the free trial left. Flare is $9.99 once, for up to three Macs."
+            "You have \(daysLeft) day\(daysLeft == 1 ? "" : "s") of the free trial left. Flare is $19.99 once, for up to three Macs."
         case .trialExpired:
-            "Your free trial has ended. Flare is a one-time purchase of $9.99 and your key arrives by email."
+            "Your free trial has ended. Flare is a one-time purchase of $19.99 and your key arrives by email."
         case .licensed, .grace:
             "Your key was emailed when you bought Flare. It works on up to three Macs."
         case .unlicensed, .unknown:
-            "Flare is a one-time purchase of $9.99. Your key arrives by email straight after checkout."
+            "Flare is a one-time purchase of $19.99. Your key arrives by email straight after checkout."
         }
     }
 

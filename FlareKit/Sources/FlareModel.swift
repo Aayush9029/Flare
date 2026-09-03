@@ -281,7 +281,7 @@ public final class FlareModel {
     @discardableResult
     private func dispatch(prompt: String, attachments: [Data], threadID: ChatThread.ID) -> Bool {
         guard license.isUnlocked else {
-            errorMessage = "Your free trial has ended. Open Settings to buy Flare for $9.99."
+            errorMessage = "Your free trial has ended. Open Settings to buy Flare for $19.99."
             return false
         }
         guard providers.active.isReady else {
