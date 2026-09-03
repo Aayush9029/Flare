@@ -65,7 +65,7 @@ struct GroupedModelPicker: View {
                     TextField("e.g. meta-llama/llama-3.1-70b", text: $customModelID)
                         .textFieldStyle(.plain)
                         .font(.system(.body, design: .monospaced))
-                        .onSubmit(verifyTyped)
+                        .onSubmit { verifyTyped() }
                 }
 
                 Spacer()

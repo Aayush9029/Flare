@@ -137,7 +137,7 @@ struct EndpointCredentialsCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(isNew ? Color.blue.opacity(0.8) : Color.primary.opacity(0.1), lineWidth: isNew ? 2 : 1)
         }
-        .onAppear(perform: load)
+        .onAppear { load() }
         .onChange(of: provider?.id) { _, _ in load() }
     }
 

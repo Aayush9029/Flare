@@ -38,7 +38,7 @@ struct CommandPaletteView: View {
                 .textFieldStyle(.plain)
                 .font(.title2)
                 .focused($isFocused)
-                .onSubmit(model.commitPaletteSelection)
+                .onSubmit { model.commitPaletteSelection() }
                 .onKeyPress(.upArrow) {
                     model.movePaletteHighlight(-1)
                     return .handled
@@ -97,7 +97,7 @@ struct CommandPaletteView: View {
     private var queryBinding: Binding<String> {
         Binding(
             get: { model.palette.query },
-            set: model.updatePaletteQuery
+            set: { model.updatePaletteQuery($0) }
         )
     }
 }

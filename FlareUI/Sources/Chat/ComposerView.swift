@@ -30,7 +30,7 @@ struct ComposerView: View {
                     .font(.system(size: 15))
                     .frame(minHeight: 30)
                     .focused($isFocused)
-                    .onSubmit(model.send)
+                    .onSubmit { model.send() }
                     .onKeyPress(.return, phases: .down) { press in
                         guard press.modifiers.contains(.shift) else { return .ignored }
                         model.draft.append("\n")
