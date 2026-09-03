@@ -27,11 +27,14 @@ final class MarkdownImageAttachment: NSTextAttachment, @unchecked Sendable {
 
     required init?(coder: NSCoder) { nil }
 
+    // Only Sendable `Data` crosses the task boundary; the NSImage is made on the
+    // main actor. Swift 6.3.3 rejects the image being sent across regions.
     private func load() {
         let url = url
         Task.detached(priority: .utility) {
-            guard let data = try? Data(contentsOf: url), let image = NSImage(data: data) else { return }
+            guard let data = try? Data(contentsOf: url) else { return }
             await MainActor.run {
+                guard let image = NSImage(data: data) else { return }
                 Self.cache.withLock { $0[url] }?.install(image)
             }
         }
