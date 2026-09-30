@@ -6,43 +6,37 @@ tests, signs, notarizes, makes a DMG, and publishes a release to
 
 ## Signing
 
-Flare uses the shared OSS identity, the same one that signs Breeze and Compose:
+Flare is signed with the Optimal Life Technologies identity, the same one that
+signs every other Mac app:
 
-- Identity: `Developer ID Application: Aayush Pokharel (4538W4A79B)`
-- Team: `4538W4A79B`
-- API key: `KDZQQND374`, issuer `32b44455-4bec-4cb8-8fbf-eb06754dda95`
+- Identity: `Developer ID Application: Optimal Life Technologies, Inc (6Q29HJZ4AG)`
+- Team: `6Q29HJZ4AG`
+- API key: `27TQ78XRSX`, issuer `dbe9e3f9-9c90-4472-b041-5f360ee3dc7c`
 
-The credentials live in `~/Secure/secrets/apple-dev/` and never enter this repo.
+The credentials live in `~/Secure/secrets/optimal-apps/` and never enter this repo.
 See the `oss-macos-release` skill for the full pipeline.
-
-Team `6Q29HJZ4AG` cannot sign a Mac app for distribution outside the App Store.
-It holds only an iPhone Distribution certificate, and the App Store Connect API
-refuses to create a Developer ID certificate for it, because only the Account
-Holder can do that in the web portal.
 
 ## Secrets
 
 | Secret | Source |
 |---|---|
-| `CERTIFICATE_P12` | `~/Secure/secrets/apple-dev/certificate_p12_base64.txt` |
-| `ASC_API_KEY_P8` | `~/Secure/secrets/apple-dev/api_key_p8_base64.txt` |
-| `ASC_API_KEY_ID` | `KDZQQND374` |
-| `ASC_API_ISSUER_ID` | `32b44455-4bec-4cb8-8fbf-eb06754dda95` |
+| `CERTIFICATE_P12` | `~/Secure/secrets/optimal-apps/developer-id.p12.base64` |
+| `CERTIFICATE_P12_PASSWORD` | `~/Secure/secrets/optimal-apps/p12-password.txt` |
+| `ASC_API_KEY_P8` | `~/Secure/secrets/optimal-apps/api_key_p8_base64.txt` |
+| `ASC_API_KEY_ID` | `27TQ78XRSX` |
+| `ASC_API_ISSUER_ID` | `dbe9e3f9-9c90-4472-b041-5f360ee3dc7c` |
 | `RELEASES_TOKEN` | token that can create releases in `Aayush9029/flare-releases` |
-
-The `.p12` carries an empty export password, so the workflow passes `-P ""` and
-there is no password secret.
 
 To reset them:
 
 ```bash
-gh secret set CERTIFICATE_P12 --repo Aayush9029/Flare \
-  < ~/Secure/secrets/apple-dev/certificate_p12_base64.txt
-gh secret set ASC_API_KEY_P8 --repo Aayush9029/Flare \
-  < ~/Secure/secrets/apple-dev/api_key_p8_base64.txt
-gh secret set ASC_API_KEY_ID --repo Aayush9029/Flare --body KDZQQND374
+S=~/Secure/secrets/optimal-apps
+gh secret set CERTIFICATE_P12 --repo Aayush9029/Flare < $S/developer-id.p12.base64
+gh secret set CERTIFICATE_P12_PASSWORD --repo Aayush9029/Flare < $S/p12-password.txt
+gh secret set ASC_API_KEY_P8 --repo Aayush9029/Flare < $S/api_key_p8_base64.txt
+gh secret set ASC_API_KEY_ID --repo Aayush9029/Flare --body 27TQ78XRSX
 gh secret set ASC_API_ISSUER_ID --repo Aayush9029/Flare \
-  --body 32b44455-4bec-4cb8-8fbf-eb06754dda95
+  --body dbe9e3f9-9c90-4472-b041-5f360ee3dc7c
 ```
 
 ## Versioning

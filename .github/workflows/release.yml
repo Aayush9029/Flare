@@ -12,7 +12,7 @@ concurrency:
 env:
   SCHEME: Flare
   APP_NAME: Flare
-  TEAM_ID: 4538W4A79B
+  TEAM_ID: 6Q29HJZ4AG
   RELEASES_REPO: Aayush9029/flare-releases
 
 jobs:
@@ -62,6 +62,7 @@ jobs:
       - name: Import signing certificate
         env:
           CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
+          CERTIFICATE_P12_PASSWORD: ${{ secrets.CERTIFICATE_P12_PASSWORD }}
         run: |
           KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
@@ -71,9 +72,8 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          # The shared Developer ID identity carries an empty export password.
           echo "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
-          security import "$RUNNER_TEMP/certificate.p12" -P "" \
+          security import "$RUNNER_TEMP/certificate.p12" -P "$CERTIFICATE_P12_PASSWORD" \
             -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
