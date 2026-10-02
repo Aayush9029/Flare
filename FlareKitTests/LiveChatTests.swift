@@ -45,7 +45,7 @@ struct LiveChatTests {
         let events = try await chat.stream(
             ChatRequest(
                 endpoint: .chatGPT,
-                model: "gpt-5.6-terra",
+                model: ChatModelCatalog.default.id,
                 effort: nil,
                 instructions: "Be terse.",
                 turns: [ChatTurn(role: "user", text: "Reply with exactly the word PONG and nothing else.")]

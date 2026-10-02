@@ -107,6 +107,15 @@ struct AnthropicDecodingTests {
         let events = events([#"{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#])
         #expect(events == [.failed("Overloaded")])
     }
+
+    @Test("A refusal is a failure, not an empty answer")
+    func refusal() {
+        let events = events([
+            #"{"type":"message_delta","delta":{"stop_reason":"refusal"}}"#,
+            #"{"type":"message_stop"}"#,
+        ])
+        #expect(events == [.failed("Claude declined to answer this."), .completed])
+    }
 }
 
 @Suite("Provider requests")
@@ -117,11 +126,11 @@ struct ProviderRequestTests {
         return encoder
     }
 
-    @Test("Anthropic turns carry images as base64 sources and efforts as budgets")
+    @Test("Anthropic turns carry images as base64 sources, and Haiku takes efforts as budgets")
     func anthropicRequest() throws {
         let png = Data([0x89, 0x50, 0x4E, 0x47])
         let request = AnthropicAPI.Request(
-            model: "claude-sonnet-5",
+            model: "claude-haiku-4-5-20251001",
             effort: "medium",
             instructions: "Be terse.",
             turns: [
@@ -138,14 +147,74 @@ struct ProviderRequestTests {
         #expect(json.contains(#""text":"A logo.""#), "trailing whitespace on an assistant turn is trimmed")
         #expect(json.contains(#""type":"web_search_20250305""#))
         #expect(json.contains(#""system":"Be terse.""#))
+        #expect(!json.contains("fallbacks"))
     }
 
-    @Test("Without an effort Anthropic gets no thinking block")
+    @Test("Without an effort Haiku gets no thinking block")
     func anthropicNoThinking() throws {
-        let request = AnthropicAPI.Request(model: "m", effort: nil, instructions: "", turns: [ChatTurn(role: "user", text: "hi")], webSearch: false)
-        let json = String(decoding: try encoder.encode(request), as: UTF8.self)
+        let json = try anthropicJSON(model: "claude-haiku-4-5", effort: nil)
         #expect(!json.contains("thinking"))
         #expect(json.contains(#""tools":[]"#))
+    }
+
+    @Test("Current Claude models think adaptively at an effort and summarize their thoughts")
+    func anthropicAdaptive() throws {
+        let json = try anthropicJSON(model: "claude-sonnet-5-5", effort: "xhigh")
+        #expect(json.contains(#""thinking":{"display":"summarized","type":"adaptive"}"#))
+        #expect(json.contains(#""output_config":{"effort":"xhigh"}"#))
+        #expect(json.contains(#""max_tokens":64000"#))
+        #expect(json.contains(#""fallbacks":"default""#))
+        #expect(!json.contains("budget_tokens"))
+    }
+
+    @Test("Off turns thinking off where it can be, and drops to low effort where it cannot")
+    func anthropicOff() throws {
+        let sonnet5 = try anthropicJSON(model: "claude-sonnet-5", effort: nil)
+        #expect(sonnet5.contains(#""thinking":{"type":"disabled"}"#))
+        #expect(!sonnet5.contains("output_config"))
+        #expect(!sonnet5.contains("fallbacks"))
+
+        let opus = try anthropicJSON(model: "claude-opus-5-5", effort: nil)
+        #expect(opus.contains(#""type":"adaptive""#))
+        #expect(opus.contains(#""output_config":{"effort":"low"}"#))
+    }
+
+    @Test("Each Claude generation offers the efforts it accepts")
+    func anthropicEfforts() {
+        #expect(AnthropicAPI.efforts(for: "claude-haiku-4-5-20251001") == Effort.standard)
+        #expect(AnthropicAPI.efforts(for: "claude-3-5-sonnet-20241022") == Effort.standard)
+        #expect(AnthropicAPI.efforts(for: "claude-opus-4-6") == Effort.standard + [Effort.max])
+        #expect(AnthropicAPI.efforts(for: "claude-sonnet-5") == Effort.standard + [Effort.extraHigh, Effort.max])
+        let alwaysOn = [Effort.low, Effort.medium, Effort.high, Effort.extraHigh, Effort.max]
+        #expect(AnthropicAPI.efforts(for: "claude-opus-5-5") == alwaysOn)
+        #expect(AnthropicAPI.efforts(for: "claude-fable-5-1") == alwaysOn)
+    }
+
+    @Test("Opus 4.6 summarizes on its own, so display is left out")
+    func anthropicOpus46() throws {
+        let json = try anthropicJSON(model: "claude-opus-4-6", effort: "high")
+        #expect(json.contains(#""thinking":{"type":"adaptive"}"#))
+        #expect(json.contains(#""output_config":{"effort":"high"}"#))
+    }
+
+    @Test("The fallback beta header goes out only with a fallback")
+    func anthropicFallbackHeader() throws {
+        let turns = [ChatTurn(role: "user", text: "hi")]
+        let fable = AnthropicAPI.Request(model: "claude-fable-5-1", effort: "low", instructions: "", turns: turns, webSearch: false)
+        let haiku = AnthropicAPI.Request(model: "claude-haiku-4-5", effort: nil, instructions: "", turns: turns, webSearch: false)
+        #expect(try AnthropicAPI.urlRequest(key: "k", body: fable).value(forHTTPHeaderField: "anthropic-beta") == "server-side-fallback-2026-07-01")
+        #expect(try AnthropicAPI.urlRequest(key: "k", body: haiku).value(forHTTPHeaderField: "anthropic-beta") == nil)
+    }
+
+    private func anthropicJSON(model: String, effort: String?) throws -> String {
+        let request = AnthropicAPI.Request(
+            model: model,
+            effort: effort,
+            instructions: "",
+            turns: [ChatTurn(role: "user", text: "hi")],
+            webSearch: false
+        )
+        return String(decoding: try encoder.encode(request), as: UTF8.self)
     }
 
     @Test("Chat Completions sends plain strings unless a turn has images")

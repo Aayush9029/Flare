@@ -13,7 +13,14 @@ struct ChatModelCatalogTests {
 
     @Test("Known ids resolve")
     func lookup() {
-        #expect(ChatModelCatalog.option(id: "gpt-5.6-sol").displayName == "GPT-5.6 Sol")
+        #expect(ChatModelCatalog.option(id: "gpt-6.1-sol").displayName == "GPT-6.1 Sol")
+    }
+
+    @Test("A retired id moves to the current model of its tier")
+    func successor() {
+        #expect(ChatModelCatalog.option(id: "gpt-5.6-luna").id == "gpt-6-luna")
+        #expect(ChatModelCatalog.option(id: "gpt-5.6-sol").id == "gpt-6.1-sol")
+        #expect(ChatModelCatalog.option(id: "gpt-5.6-terra").id == ChatModelCatalog.default.id)
     }
 
     @Test("Every model offers at least one effort level")
@@ -81,14 +88,14 @@ struct ProviderCatalogTests {
         let server = Self.server.id.uuidString
 
         catalog.activate(ProviderKind.openAI.rawValue)
-        catalog.select(ModelSelection(model: "gpt-5.6-sol", effort: "xhigh"))
+        catalog.select(ModelSelection(model: "gpt-6.1-sol", effort: "xhigh"))
         catalog.activate(server)
         #expect(catalog.selection == ModelSelection(model: "qwen3", effort: nil))
         catalog.select(ModelSelection(model: "qwen3", effort: "high"))
 
         catalog.activate(ProviderKind.openAI.rawValue)
-        #expect(catalog.selection == ModelSelection(model: "gpt-5.6-sol", effort: "xhigh"))
-        #expect(catalog.selectionTitle == "5.6 Sol · Extra High")
+        #expect(catalog.selection == ModelSelection(model: "gpt-6.1-sol", effort: "xhigh"))
+        #expect(catalog.selectionTitle == "6.1 Sol · Extra High")
         catalog.activate(server)
         #expect(catalog.selection == ModelSelection(model: "qwen3", effort: "high"))
         #expect(catalog.selectionTitle == "qwen3 · High")
@@ -104,10 +111,18 @@ struct ProviderCatalogTests {
         #expect(catalog.active.efforts(for: "unlisted") == Effort.standard)
 
         catalog.activate(ProviderKind.openAI.rawValue)
-        catalog.select(ModelSelection(model: "gpt-5.6-luna", effort: nil))
+        catalog.select(ModelSelection(model: "gpt-6-luna", effort: nil))
         #expect(catalog.selection.effort == "medium")
-        catalog.select(ModelSelection(model: "gpt-5.6-luna", effort: "xhigh"))
-        #expect(catalog.selection.effort == "medium", "Luna stops at medium")
+        catalog.select(ModelSelection(model: "gpt-6-luna", effort: "xhigh"))
+        #expect(catalog.selection.effort == "medium", "Luna stops at high")
+    }
+
+    @Test("A saved retired OpenAI model is read as its successor, effort kept")
+    func migratesRetiredModel() {
+        let catalog = makeCatalog(apiKey: "sk-test")
+        catalog.activate(ProviderKind.openAI.rawValue)
+        catalog.select(ModelSelection(model: "gpt-5.6-luna", effort: "low"))
+        #expect(catalog.selection == ModelSelection(model: "gpt-6-luna", effort: "low"))
     }
 
     @Test("A key is kept once the vendor lists models, and they come back sorted")
@@ -143,21 +158,43 @@ struct ProviderCatalogTests {
         #expect(catalog.file.keys[added.id.uuidString] == nil)
     }
 
-    @Test("An Anthropic key lists models and the default lands on Sonnet")
+    @Test("An Anthropic key lists models and the default lands on the newest Sonnet")
     func anthropicKey() async throws {
         let catalog = makeCatalog(listing: [
-            ModelInfo(id: "claude-opus-5-20260901", name: "Claude Opus 5"),
-            ModelInfo(id: "claude-sonnet-5-20260815", name: "Claude Sonnet 5"),
+            ModelInfo(id: "claude-opus-5-5", name: "Claude Opus 5.5"),
+            ModelInfo(id: "claude-sonnet-5", name: "Claude Sonnet 5"),
+            ModelInfo(id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5"),
+            ModelInfo(id: "claude-sonnet-4-5-20250929", name: "Claude Sonnet 4.5"),
             ModelInfo(id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5"),
         ])
         let anthropic = try #require(catalog.provider(ProviderKind.anthropic.rawValue))
         try await catalog.setKey("sk-ant-test", for: anthropic)
         catalog.activate(anthropic.id)
         #expect(catalog.active.isReady)
-        #expect(catalog.selection == ModelSelection(model: "claude-sonnet-5-20260815", effort: nil))
-        #expect(catalog.selectionTitle == "Claude Sonnet 5")
+        #expect(catalog.selection == ModelSelection(model: "claude-sonnet-5-5", effort: "medium"))
+        #expect(catalog.selectionTitle == "Claude Sonnet 5.5 · Medium")
         #expect(catalog.active.titleSelection(current: catalog.selection).model == "claude-haiku-4-5-20251001")
-        #expect(catalog.active.efforts(for: "claude-opus-5-20260901") == Effort.standard)
+
+        catalog.select(ModelSelection(model: "claude-opus-5-5", effort: nil))
+        #expect(catalog.selection.effort == "medium", "Opus 5.5 cannot stop thinking, so Off is not kept")
+    }
+
+    @Test("Gemini defaults to its newest Flash and titles with its newest Flash-Lite")
+    func geminiNewest() async throws {
+        let catalog = makeCatalog(listing: [
+            ModelInfo(id: "models/gemini-2.5-flash"),
+            ModelInfo(id: "models/gemini-3.8-flash"),
+            ModelInfo(id: "models/gemini-3-flash-preview"),
+            ModelInfo(id: "models/gemini-3.10-flash-lite-preview"),
+            ModelInfo(id: "models/gemini-3.5-flash-lite"),
+            ModelInfo(id: "models/gemini-2.5-flash-lite"),
+            ModelInfo(id: "models/gemini-flash-latest"),
+        ])
+        let gemini = try #require(catalog.provider(ProviderKind.gemini.rawValue))
+        try await catalog.setKey("AIza-test", for: gemini)
+        catalog.activate(gemini.id)
+        #expect(catalog.selection.model == "models/gemini-3.8-flash")
+        #expect(catalog.active.titleSelection(current: catalog.selection).model == "models/gemini-3.5-flash-lite")
     }
 
     @Test("A typed model must answer a sum before it is trusted")

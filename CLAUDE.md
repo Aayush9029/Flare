@@ -71,9 +71,15 @@ built-in vendor's URL folds into that vendor's card on load.
 - `ChatClient` routes on `ChatEndpoint`: Responses, `AnthropicAPI`, or `ChatCompletionsAPI`. All
   three decode into the same `StreamEvent`s through `StreamingHTTP`; a stream that ends without
   saying so still counts as completed, only a cancellation counts as stopped.
-- Reasoning per dialect: Responses `reasoning.effort`; Anthropic `thinking.budget_tokens` (low
-  2048, medium 8192, high 32768, plus 16384 `max_tokens`); Chat Completions `reasoning_effort`,
-  except OpenRouter, which takes `reasoning: {effort}`. Off sends nothing. Thoughts arrive as
+- Reasoning per dialect: Responses `reasoning.effort`; Chat Completions `reasoning_effort`,
+  except OpenRouter, which takes `reasoning: {effort}`. Off sends nothing. Anthropic reads the
+  model id (`ClaudeModel`): Haiku and models before 4.6 take `thinking.budget_tokens` (low 2048,
+  medium 8192, high 32768, plus 16384 `max_tokens`); later ones 400 on a budget and take adaptive
+  thinking with `output_config.effort`, 64000 `max_tokens` and `display: "summarized"`, since 4.7
+  onward stream empty thoughts otherwise. Off sends `thinking: disabled`. Fable and Opus or Sonnet
+  5.5 onward cannot stop thinking, so they offer no Off. Fable, Opus 5+ and Sonnet 5.5+ also send
+  `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`) so Anthropic retries a safeguard
+  decline on another model; a `refusal` stop reason that survives fails the turn. Thoughts arrive as
   `reasoning` (OpenRouter, Groq) or `reasoning_content` (vLLM, llama.cpp) deltas, or as `<think>`
   tags, which `ThinkTagSplitter` only honours before any answer text.
 - Listings come from `/models` in every dialect. OpenRouter says which models reason
@@ -201,7 +207,7 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   cards, ChatGPT and API Key. Choosing ChatGPT adopts a Codex CLI session when one exists;
   choosing API Key reveals the field. A pasted key is trimmed and must answer a "hi" through
   `verifyAPIKey` before it is kept. The old Automatic value reads as whichever is set up.
-- The composer's chip names the model and effort ("5.6 Terra · High") and opens a card over the
+- The composer's chip names the model and effort ("6.1 Sol · High") and opens a card over the
   composer with only the reasoning slider (`EffortSlider` on `StopSlider`, shared with the Width
   slider) and a link to Settings. The model and the provider are chosen in Settings, not here.
   Behind the card a material under a gradient mask frosts the chat from the bottom up. Escape, a

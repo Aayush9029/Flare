@@ -24,6 +24,7 @@ public enum Effort {
     public static let medium = "medium"
     public static let high = "high"
     public static let extraHigh = "xhigh"
+    public static let max = "max"
 
     /// The stops a model of unknown ability offers, Off first.
     public static let standard = [none, low, medium, high]
@@ -35,6 +36,7 @@ public enum Effort {
         case medium: "Medium"
         case high: "High"
         case extraHigh: "Extra High"
+        case max: "Max"
         case let other?: other.capitalized
         }
     }

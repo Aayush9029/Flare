@@ -33,7 +33,7 @@ struct LiveProviderTests {
             kind: .openRouter,
             baseURL: "https://openrouter.ai/api/v1",
             keyVariable: "OPENROUTER_API_KEY",
-            chat: ["openai/gpt-5.6-luna", "openai/gpt-4.1-nano", "google/gemini-2.5-flash-lite"],
+            chat: ["openai/gpt-6-luna", "openai/gpt-4.1-nano", "google/gemini-3.5-flash-lite"],
             reasoning: ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "deepseek/deepseek-r1-0528"]
         ),
         Vendor(
@@ -165,7 +165,7 @@ struct LiveProviderTests {
             chat,
             ChatRequest(
                 endpoint: endpoint,
-                model: "openai/gpt-5.6-luna",
+                model: "openai/gpt-6-luna",
                 effort: nil,
                 instructions: "Be terse.",
                 turns: [ChatTurn(role: "user", text: "What colour is this image? One word.", images: [png])]

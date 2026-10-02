@@ -1,6 +1,7 @@
 import Foundation
 
-/// The Messages API. Thinking is a token budget here, so each effort maps to one.
+/// The Messages API. Haiku and the models before 4.6 think within a token budget;
+/// later ones think adaptively at an effort.
 public enum AnthropicAPI {
     public static let messagesURL = URL(string: "https://api.anthropic.com/v1/messages")!
     public static let modelsURL = URL(string: "https://api.anthropic.com/v1/models?limit=1000")!
@@ -13,6 +14,8 @@ public enum AnthropicAPI {
         public var messages: [Message]
         public var stream = true
         public var thinking: Thinking?
+        public var outputConfig: OutputConfig?
+        public var fallbacks: String?
         public var tools: [Tool]
 
         enum CodingKeys: String, CodingKey {
@@ -22,14 +25,30 @@ public enum AnthropicAPI {
             case messages
             case stream
             case thinking
+            case outputConfig = "output_config"
+            case fallbacks
             case tools
         }
 
         public init(model: String, effort: String?, instructions: String, turns: [ChatTurn], webSearch: Bool) {
             self.model = model
-            let budget = AnthropicAPI.budget(for: effort)
-            thinking = budget.map { Thinking(budgetTokens: $0) }
-            maxTokens = 16384 + (budget ?? 0)
+            let claude = ClaudeModel(model)
+            switch claude?.thinking ?? .alwaysOn {
+            case .budget:
+                let budget = AnthropicAPI.budget(for: effort)
+                thinking = budget.map { Thinking(type: "enabled", budgetTokens: $0) }
+                maxTokens = 16384 + (budget ?? 0)
+            case .adaptive where effort == nil:
+                thinking = Thinking(type: "disabled")
+                maxTokens = 16384
+            case .adaptive, .alwaysOn:
+                // 4.6 summarizes by default; later models leave thoughts empty unless asked.
+                let summarizes = claude?.isBefore([4, 7]) == true
+                thinking = Thinking(type: "adaptive", display: summarizes ? nil : "summarized")
+                outputConfig = OutputConfig(effort: effort ?? Effort.low)
+                maxTokens = 64000
+            }
+            fallbacks = claude?.hasDefaultFallback == true ? "default" : nil
             system = instructions
             messages = turns.compactMap(Message.init)
             tools = webSearch ? [Tool()] : []
@@ -81,12 +100,31 @@ public enum AnthropicAPI {
     }
 
     public struct Thinking: Encodable {
-        public var type = "enabled"
-        public var budgetTokens: Int
+        public var type: String
+        public var budgetTokens: Int?
+        public var display: String?
 
         enum CodingKeys: String, CodingKey {
             case type
             case budgetTokens = "budget_tokens"
+            case display
+        }
+    }
+
+    public struct OutputConfig: Encodable {
+        public var effort: String
+    }
+
+    /// The effort stops a model takes. Off is missing where thinking cannot be turned off.
+    public static func efforts(for model: String) -> [String] {
+        let claude = ClaudeModel(model)
+        switch claude?.thinking ?? .alwaysOn {
+        case .budget:
+            return Effort.standard
+        case .adaptive:
+            return Effort.standard + (claude?.isBefore([4, 7]) == true ? [] : [Effort.extraHigh]) + [Effort.max]
+        case .alwaysOn:
+            return [Effort.low, Effort.medium, Effort.high, Effort.extraHigh, Effort.max]
         }
     }
 
@@ -118,6 +156,7 @@ public enum AnthropicAPI {
         request.timeoutInterval = 300
         request.setValue(key, forHTTPHeaderField: "x-api-key")
         request.setValue(version, forHTTPHeaderField: "anthropic-version")
+        if body.fallbacks != nil { request.setValue("server-side-fallback-2026-07-01", forHTTPHeaderField: "anthropic-beta") }
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.httpBody = try JSONEncoder().encode(body)
@@ -158,6 +197,9 @@ public enum AnthropicAPI {
                 default:
                     return []
                 }
+            case "message_delta":
+                let delta = object["delta"] as? [String: Any]
+                return delta?["stop_reason"] as? String == "refusal" ? [.failed("Claude declined to answer this.")] : []
             case "message_stop":
                 return [.completed]
             case "error":
@@ -178,5 +220,43 @@ public enum ImageMIME {
         if head.starts(with: [0x47, 0x49, 0x46]) { return "image/gif" }
         if head.count >= 12, head[8...11] == [0x57, 0x45, 0x42, 0x50] { return "image/webp" }
         return "image/png"
+    }
+}
+
+/// A Claude model id read for what it takes: `claude-sonnet-4-5-20250929` is Sonnet 4.5,
+/// and the older `claude-3-5-sonnet` form reads as family "3". Nil for an id without a
+/// version, which is treated as a current model.
+struct ClaudeModel {
+    enum Thinking { case budget, adaptive, alwaysOn }
+
+    let family: String
+    let version: [Int]
+
+    init?(_ id: String) {
+        let parts = ModelInfo(id: id).bareID.lowercased().split(separator: "-")
+        guard parts.count > 2, parts[0] == "claude" else { return nil }
+        family = String(parts[1])
+        version = parts.dropFirst(2).prefix { $0.count < 8 && Int($0) != nil }.compactMap { Int($0) }
+        if version.isEmpty, Int(family) == nil { return nil }
+    }
+
+    func isBefore(_ release: [Int]) -> Bool {
+        Int(family) != nil || version.lexicographicallyPrecedes(release)
+    }
+
+    var thinking: Thinking {
+        if isBefore([4, 6]) { return .budget }
+        if family == "fable" || family == "mythos" || !isBefore([5, 5]) { return .alwaysOn }
+        return .adaptive
+    }
+
+    /// The models whose safeguards can decline, which Anthropic retries on a model it picks.
+    var hasDefaultFallback: Bool {
+        switch family {
+        case "fable": true
+        case "opus": !isBefore([5])
+        case "sonnet": !isBefore([5, 5])
+        default: false
+        }
     }
 }

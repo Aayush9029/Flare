@@ -34,16 +34,16 @@ let package = Package(
     name: "FlareDeps",
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.17.1"),
-        .package(url: "https://github.com/pointfreeco/swift-sharing", from: "2.10.0"),
+        .package(url: "https://github.com/pointfreeco/swift-sharing", from: "2.10.1"),
         .package(url: "https://github.com/pointfreeco/swift-identified-collections", from: "1.1.1"),
         .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "1.10.0"),
-        .package(url: "https://github.com/pointfreeco/swift-navigation", from: "2.11.1"),
+        .package(url: "https://github.com/pointfreeco/swift-navigation", from: "2.11.2"),
         .package(url: "https://github.com/pointfreeco/swift-tagged", from: "0.10.0"),
         .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.7.3"),
         // The `Tagged` trait ships SQLiteData's conformances for `Tagged` IDs.
-        .package(url: "https://github.com/pointfreeco/sqlite-data", from: "1.11.2", traits: ["Tagged"]),
-        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "3.0.1"),
-        .package(url: "https://github.com/swiftlang/swift-markdown", from: "0.7.3"),
+        .package(url: "https://github.com/pointfreeco/sqlite-data", from: "1.12.0", traits: ["Tagged"]),
+        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "3.1.0"),
+        .package(url: "https://github.com/swiftlang/swift-markdown", from: "0.9.0"),
         .package(url: "https://github.com/appstefan/HighlightSwift", revision: "99c431b38a1444a5fd6a4978307fbbefe3a7af53"),
     ]
 )

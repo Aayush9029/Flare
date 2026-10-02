@@ -52,9 +52,9 @@ public enum ProviderKind: String, Codable, Sendable, CaseIterable {
 
     public var description: String {
         switch self {
-        case .chatGPT: "Your ChatGPT subscription. GPT-5.6, web search and images, no extra billing."
-        case .openAI: "GPT-5.6 through the API, billed per token."
-        case .anthropic: "Claude Opus, Sonnet and Haiku, billed per token."
+        case .chatGPT: "Your ChatGPT subscription. GPT-6, web search and images, no extra billing."
+        case .openAI: "GPT-6 through the API, billed per token."
+        case .anthropic: "Claude Fable, Opus, Sonnet and Haiku, billed per token."
         case .groq: "Open models on Groq's own chips. Very fast."
         case .gemini: "Google's Gemini models. Multimodal, long context."
         case .openRouter: "Hundreds of models from every vendor behind one key."

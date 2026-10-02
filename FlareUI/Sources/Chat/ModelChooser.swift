@@ -68,7 +68,8 @@ struct ModelChooser: View {
         case Effort.low: "Quick answers and lookups."
         case Effort.medium: "The everyday default."
         case Effort.high: "More thought on harder questions."
-        case Effort.extraHigh: "Thinking as long as it takes."
+        case Effort.extraHigh: "Deep thought on hard problems."
+        case Effort.max: "Thinking as long as it takes."
         default: ""
         }
     }

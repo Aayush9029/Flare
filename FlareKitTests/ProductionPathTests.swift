@@ -173,7 +173,7 @@ struct ProductionPathTests {
         }
         let models = try await ProviderClient.liveValue.listModels(.anthropic, key)
         let haiku = try #require(models.first { $0.id.contains("haiku") }?.id)
-        let sonnet = models.first { $0.id.hasPrefix("claude-sonnet-5") }?.id ?? haiku
+        let sonnet = models.first { $0.id.hasPrefix("claude-sonnet-5-5") }?.id ?? haiku
 
         for (model, effort) in [(haiku, nil), (sonnet, Effort.medium)] {
             var text = ""
