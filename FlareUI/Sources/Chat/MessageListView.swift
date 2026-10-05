@@ -6,7 +6,9 @@ struct MessageListView: View {
     let threadID: ChatThread.ID
     let model: FlareModel
 
-    @FetchAll private var messages: [ChatMessage]
+    // `none`, not a bare `@FetchAll`: the bare wrapper default-initialises to every
+    // message in the database, fetched on the main thread before `init` replaces it.
+    @FetchAll(ChatMessage.none) private var messages
     @State private var position = ScrollPosition(edge: .bottom)
     @State private var isPinnedToBottom = true
     @Environment(\.transcriptBottomInset) private var bottomInset

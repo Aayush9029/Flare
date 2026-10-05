@@ -126,6 +126,11 @@ multi-term or ranking, 15 ms on rare terms) and trigram (2.9x the index for wors
 latency). External-content FTS is 39% smaller at equal speed but ties the index to rowids that
 `VACUUM` may renumber, so the standalone table stays.
 
+`MessageListView` declares `@FetchAll(ChatMessage.none)` before its `init` sets the thread's
+query. A bare `@FetchAll` default-initialises to every message in the database and fetches it on
+the main thread each time the panel's body runs: 44 ms per run on 20k messages, which made ⌘K
+cost 51 ms per keystroke (5.5 ms without it) and the first show 148 ms (28 ms).
+
 ## Tools
 
 The Codex backend accepts **`web_search`** and **`image_generation`**. It rejects
