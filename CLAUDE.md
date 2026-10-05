@@ -172,8 +172,10 @@ These were settled by profiling and are easy to undo by accident:
 - **`widthTracksTextView = false` and `isVerticallyResizable = false`.** SwiftUI sizes the view
   from `height(fittingWidth:)`. Left to itself the text view resets the container on every frame
   change, which throws away every fragment's layout, and redraws everything on every resize.
-- **The streaming border is a rasterised gradient rotated as a texture.** Shading a conic gradient
-  through a blur on every frame took a tenth of the main thread while a reply streamed.
+- **The streaming border and the shimmer are Core Animation layers.** The border is a conic
+  gradient turned as a texture: shading it through a blur on every frame took a tenth of the main
+  thread. Driven by a `TimelineView`, either one re-rendered the whole panel on every display
+  frame: 2.4 s of main thread over a 14.6 s answer, 1.8 s with both in Core Animation.
 - **A build lands at most every 33 ms (`MarkdownDocumentModel.buildInterval`).** One build per
   snapshot cost 4.5 s of main thread over a 14.6 s, 6 KB answer; capped, 2.7 s.
 
