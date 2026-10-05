@@ -164,7 +164,7 @@ paragraphs from the first one that changed, so a streaming answer lays out a few
 the `.markdownBlock` attribute. `CodeHighlighter` colours a fenced block once its fence is closed,
 through HighlightSwift, and caches per appearance.
 
-Three things here were settled by profiling and are easy to undo by accident:
+These were settled by profiling and are easy to undo by accident:
 
 - **`sizingOptions = []` on the panel's root `NSHostingView`.** Otherwise every update re-derives
   the hosting view's minimum, maximum and intrinsic sizes, which proposes extra widths to every
@@ -174,6 +174,8 @@ Three things here were settled by profiling and are easy to undo by accident:
   change, which throws away every fragment's layout, and redraws everything on every resize.
 - **The streaming border is a rasterised gradient rotated as a texture.** Shading a conic gradient
   through a blur on every frame took a tenth of the main thread while a reply streamed.
+- **A build lands at most every 33 ms (`MarkdownDocumentModel.buildInterval`).** One build per
+  snapshot cost 4.5 s of main thread over a 14.6 s, 6 KB answer; capped, 2.7 s.
 
 Measured on a 400-word reply: the old per-paragraph renderer held one core at 45 to 65 percent
 for the whole stream and climbed with length; this one sits near 20 percent and stays flat.

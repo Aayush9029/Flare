@@ -17,6 +17,11 @@ final class MarkdownDocumentModel {
     @ObservationIgnored private var buildTask: Task<Void, Never>?
     @ObservationIgnored private var needsBuild = false
     @ObservationIgnored private var isRunning = false
+    @ObservationIgnored private var lastBuild: ContinuousClock.Instant?
+
+    /// A stream sends snapshots faster than the eye reads them; each build that lands
+    /// costs a layout and a redraw on the main thread.
+    private static let buildInterval = Duration.milliseconds(33)
 
     init(relay: MarkdownRelay, theme: MarkdownTheme) {
         self.relay = relay
@@ -51,6 +56,12 @@ final class MarkdownDocumentModel {
             return
         }
         buildTask = Task { [weak self] in
+            if let lastBuild = self?.lastBuild {
+                let wait = Self.buildInterval - (ContinuousClock.now - lastBuild)
+                if wait > .zero { try? await Task.sleep(for: wait) }
+            }
+            // The build reads the newest snapshot, so whatever arrived while waiting is in it.
+            self?.needsBuild = false
             await self?.build()
             guard let self else { return }
             self.buildTask = nil
@@ -69,6 +80,7 @@ final class MarkdownDocumentModel {
             return (MarkdownBuild(segments: output.segments), output.pendingHighlights)
         }.value
         segments = output.0.segments
+        lastBuild = .now
         for key in output.1 {
             Task {
                 await CodeHighlighter.shared.request(key) { [weak self] in
