@@ -1,8 +1,9 @@
 # Releasing Flare
 
-Every push to `main` runs `.github/workflows/release.yml`. The workflow builds,
-tests, signs, notarizes, makes a DMG, and publishes a release to
-`Aayush9029/flare-releases`.
+Every push to `main` that changes the app runs `.github/workflows/release.yml`.
+The workflow builds, tests, signs, notarizes, makes a DMG, and publishes a
+release on this repository. Changes to `docs/`, `web/`, `assets/`, and Markdown
+files do not start a release.
 
 ## Signing
 
@@ -25,7 +26,6 @@ See the `oss-macos-release` skill for the full pipeline.
 | `ASC_API_KEY_P8` | `~/Secure/secrets/optimal-apps/api_key_p8_base64.txt` |
 | `ASC_API_KEY_ID` | `27TQ78XRSX` |
 | `ASC_API_ISSUER_ID` | `dbe9e3f9-9c90-4472-b041-5f360ee3dc7c` |
-| `RELEASES_TOKEN` | token that can create releases in `Aayush9029/flare-releases` |
 
 To reset them:
 
@@ -50,3 +50,8 @@ number is the workflow run number, so it always climbs. Tags take the form
 ```bash
 gh workflow run Release --repo Aayush9029/Flare
 ```
+
+## Homebrew
+
+`Casks/flare.rb` in `Aayush9029/homebrew-tap` installs the DMG. After a release,
+set `version` to `<marketing>,<run>` and `sha256` to the DMG checksum.

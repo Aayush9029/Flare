@@ -16,7 +16,6 @@ public final class FlareModel {
     @ObservationIgnored @Dependency(\.date.now) private var now
 
     public let preferences = Preferences()
-    public let license = LicenseModel()
     public let providers: ProviderCatalog
 
     public var statusPlaceholder: String {
@@ -280,10 +279,6 @@ public final class FlareModel {
     /// Starts a turn, or reports why it cannot and returns false with nothing changed.
     @discardableResult
     private func dispatch(prompt: String, attachments: [Data], threadID: ChatThread.ID) -> Bool {
-        guard license.isUnlocked else {
-            errorMessage = "Your free trial has ended. Open Settings to buy Flare for $19.99."
-            return false
-        }
         guard providers.active.isReady else {
             errorMessage = providers.active.setupMessage
             return false

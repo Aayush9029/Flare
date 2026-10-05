@@ -3,7 +3,15 @@ name: Release
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "web/**"
+      - "assets/**"
+      - "**.md"
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 concurrency:
   group: release
@@ -13,7 +21,6 @@ env:
   SCHEME: Flare
   APP_NAME: Flare
   TEAM_ID: 6Q29HJZ4AG
-  RELEASES_REPO: Aayush9029/flare-releases
 
 jobs:
   release:
@@ -160,12 +167,12 @@ jobs:
           xcrun stapler validate "$RUNNER_TEMP/export/$APP_NAME.app"
           xcrun stapler validate "$DMG_PATH"
 
-      - name: Publish to the releases repo
+      - name: Publish the release
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ steps.version.outputs.tag }}" \
-            --repo "$RELEASES_REPO" \
+            --repo "$GITHUB_REPOSITORY" \
             --title "Flare ${{ steps.version.outputs.marketing }} (${{ steps.version.outputs.build }})" \
             --notes "Automated build from \`${{ github.sha }}\`." \
             "$DMG_PATH"

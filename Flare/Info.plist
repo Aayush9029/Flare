@@ -30,6 +30,6 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Flare talks to AI servers you add on your local network.</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2026 Aayush Pokharel. All rights reserved.</string>
+	<string>Copyright © 2026 Aayush Pokharel.</string>
 </dict>
 </plist>

@@ -104,7 +104,7 @@ public enum ChatCompletionsAPI {
         if !key.isEmpty { request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization") }
         if isOpenRouter {
             request.setValue("Flare", forHTTPHeaderField: "X-Title")
-            request.setValue("https://github.com/Aayush9029/flare-releases", forHTTPHeaderField: "HTTP-Referer")
+            request.setValue("https://github.com/Aayush9029/Flare", forHTTPHeaderField: "HTTP-Referer")
         }
         request.httpBody = try JSONEncoder().encode(body)
         return request

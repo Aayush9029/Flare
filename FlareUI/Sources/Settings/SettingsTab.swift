@@ -3,7 +3,6 @@ import SwiftUI
 enum SettingsTab: String, CaseIterable, Identifiable {
     case general
     case providers
-    case license
     case prompt
     case shortcuts
     case about
@@ -14,7 +13,6 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: "General"
         case .providers: "Providers"
-        case .license: "License"
         case .prompt: "Prompt"
         case .shortcuts: "Shortcuts"
         case .about: "About"
@@ -25,7 +23,6 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: "gearshape"
         case .providers: "cloud"
-        case .license: "key"
         case .prompt: "text.quote"
         case .shortcuts: "keyboard"
         case .about: "info.circle"
@@ -36,7 +33,6 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: .gray
         case .providers: .green
-        case .license: .purple
         case .prompt: .indigo
         case .shortcuts: .orange
         case .about: .blue

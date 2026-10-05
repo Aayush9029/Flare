@@ -84,10 +84,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return nil
         }
 
-        // Without this the licence is only resolved when the License pane appears,
-        // so a licensed user is locked out until they open Settings.
-        Task { await model.license.start() }
-
         setUpStatusItem(model: model)
         applyMenuBarPreference(model: model)
         applyDockPreference(model: model)

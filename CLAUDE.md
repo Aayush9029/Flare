@@ -12,6 +12,8 @@ you have ever sent or received. Menu-bar only (`LSUIElement`), unsandboxed, Tuis
 | `FlareKit/` | Static framework — auth, chat streaming, SQLite store, search, `FlareModel`, window client |
 | `FlareUI/` | Static framework — panel, composer, command palette, settings, design system |
 | `FlareKitTests/` | Swift Testing suites, including gated live and benchmark suites |
+| `web/` | Landing page source (Vite, React, Tailwind) |
+| `docs/` | Built landing page, served by GitHub Pages at `https://aayush9029.github.io/Flare/` |
 
 ## Commands
 
@@ -20,7 +22,12 @@ tuist install                       # resolve packages (needed after Tuist/Packa
 tuist generate --no-open            # regenerate the workspace
 xcodebuild build -workspace Flare.xcworkspace -scheme Flare -configuration Debug -destination 'platform=macOS'
 xcodebuild test  -workspace Flare.xcworkspace -scheme FlareKit -destination 'platform=macOS'
+cd web && bun install && bun run build   # rebuild the landing page into docs/
 ```
+
+Flare is free and MIT licensed: no trial, no license key, no payment. Pages serves `docs/` from
+`main` as committed, so rebuild and commit `docs/` with every `web/` change. The global
+`~/.gitignore` ignores a root `/site`, which is why the source lives in `web/`.
 
 Tests live on the **`FlareKit`** scheme, not `Flare` — Tuist attaches a unit-test target
 to the scheme of the target it tests, and there is no `FlareKitTests` scheme.
@@ -46,9 +53,6 @@ drives the chat with no API key and no metered billing.
   ChatGPT tokens, `api-key` for an API key. **Not the Keychain** — a Keychain ACL is bound to the
   signing identity, so every re-signed debug build lost the token.
 - `importFromCodexCLI` adopts `~/.codex/auth.json` directly, skipping the browser.
-- The license key, its activation and the trial start live in `license.json` beside `auth.json`,
-  also at `0600`. They were in the Keychain, and every re-signed build asked for permission on
-  launch; even a one-time read of the old items asks, so nothing is migrated.
 - Two credentials, and the credential picks the endpoint. An API key wins when present because the
   user set it explicitly: it goes to `https://api.openai.com/v1/responses` and bills per token.
   Otherwise ChatGPT tokens go to `https://chatgpt.com/backend-api/codex/responses` with the headers
