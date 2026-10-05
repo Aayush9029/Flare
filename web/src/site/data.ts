@@ -21,14 +21,8 @@ const clip = (folder: string, name: string, title = `${name}.mov`): Clip => ({
 export const CLIPS = {
   hello: clip("clips", "hello"),
   kitchen: clip("clips", "kitchen", "risotto-night.mov"),
-  keys: clip("clips", "keys", "the-shortcut.mov"),
   cafe: clip("clips", "cafe", "iced-coffee.mov"),
-  studio: clip("clips", "studio", "rooftop.mov"),
-  couch: clip("clips", "couch", "sunday-plans.mov"),
-  train: clip("clips", "train", "commute.mov"),
   night: clip("clips", "night", "2am.mov"),
-  react: clip("clips", "react", "it-worked.mov"),
-  talk: clip("film", "talk", "a-hundred-small-things.mov"),
 }
 
 const open: Cue = { t: 1.15, keys: ["⌘", "⇧", "Space"] }

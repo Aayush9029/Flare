@@ -1,5 +1,4 @@
 import { Footer, Models, Note, OpenSource } from "@/site/Closing"
-import { Everywhere } from "@/site/Everywhere"
 import { Features } from "@/site/Features"
 import { Showcase } from "@/site/Showcase"
 import { Hero } from "@/site/Hero"
@@ -18,7 +17,6 @@ export default function App() {
           </div>
         </section>
         <Features />
-        <Everywhere />
         <Shortcuts />
         <Models />
         <Note />

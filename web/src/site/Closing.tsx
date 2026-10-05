@@ -3,8 +3,7 @@ import { motion } from "motion/react"
 import type { CSSProperties } from "react"
 
 import { AppleLogo } from "@/components/AppleLogo"
-import { asset, BREW, CLIPS, DOWNLOAD, media, PROVIDERS, RELEASES, SOURCE } from "./data"
-import { Film } from "./Film"
+import { asset, BREW, DOWNLOAD, media, PROVIDERS, RELEASES, SOURCE } from "./data"
 import { Window } from "./Window"
 import { Wordmark } from "./Wordmark"
 
@@ -51,7 +50,7 @@ export function Note() {
         style={{ "--bob-delay": "-2s" } as CSSProperties}
         className="sticker-bob absolute right-[4%] bottom-6 z-10 hidden w-20 rotate-12 drop-shadow-[0_8px_14px_rgba(30,21,53,0.25)] lg:block"
       />
-      <div className="relative mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[6fr_5fr]">
+      <div className="relative mx-auto max-w-3xl">
         <Window
           title="Notes"
           barClassName="bg-[linear-gradient(#f7eeb5,#efe39a)] border-b-[#d9c96a]"
@@ -64,7 +63,6 @@ export function Note() {
             <p className="mt-5">Every chat is saved on your Mac, not on our servers. There is no account to make.</p>
           </div>
         </Window>
-        <Film clip={CLIPS.talk} />
       </div>
     </section>
   )
