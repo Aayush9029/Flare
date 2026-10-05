@@ -37,28 +37,24 @@ final class MarkdownTextView: NSTextView, @preconcurrency NSTextLayoutManagerDel
     // MARK: Content
 
     func setAttributedText(_ text: NSAttributedString) {
-        guard let storage = textStorage, !text.isEqual(to: currentText) else { return }
-        let oldParagraphs = paragraphRanges(in: currentText.string)
-        let newParagraphs = paragraphRanges(in: text.string)
-        var shared = 0
-        while shared < min(oldParagraphs.count, newParagraphs.count),
-              currentText.attributedSubstring(from: oldParagraphs[shared])
-                  .isEqual(to: text.attributedSubstring(from: newParagraphs[shared])) {
-            shared += 1
-        }
-        let oldStart = shared < oldParagraphs.count ? oldParagraphs[shared].location : currentText.length
-        let newStart = shared < newParagraphs.count ? newParagraphs[shared].location : text.length
+        guard let storage = textStorage else { return }
+        let shared = commonPrefixLength(currentText, text)
+        guard shared < currentText.length || shared < text.length else { return }
+        // From the start of the paragraph that holds the first change.
+        let newline = (CFAttributedStringGetString(text) as NSString)
+            .range(of: "\n", options: .backwards, range: NSRange(location: 0, length: shared))
+        let start = newline.location == NSNotFound ? 0 : NSMaxRange(newline)
 
         storage.beginEditing()
         storage.replaceCharacters(
-            in: NSRange(location: oldStart, length: currentText.length - oldStart),
-            with: text.attributedSubstring(from: NSRange(location: newStart, length: text.length - newStart))
+            in: NSRange(location: start, length: currentText.length - start),
+            with: text.attributedSubstring(from: NSRange(location: start, length: text.length - start))
         )
         storage.endEditing()
         currentText = text
         version += 1
         measured = nil
-        redisplayFrom = oldStart
+        redisplayFrom = start
     }
 
     /// TextKit invalidates only the line rects of edited paragraphs, which is
@@ -165,4 +161,35 @@ final class MarkdownTextView: NSTextView, @preconcurrency NSTextLayoutManagerDel
         return string.substring(with: NSRange(location: start, length: end - start + 1))
             .trimmingCharacters(in: .newlines)
     }
+}
+
+/// How many UTF-16 units two attributed strings share from the start, in characters and
+/// attributes alike. Comparing per paragraph copied both strings into substrings on
+/// every update of a streaming answer; Core Foundation reads both in place.
+private func commonPrefixLength(_ a: NSAttributedString, _ b: NSAttributedString) -> Int {
+    let left = CFAttributedStringGetString(a)
+    let right = CFAttributedStringGetString(b)
+    let limit = min(CFStringGetLength(left), CFStringGetLength(right))
+    var length = 0
+    var leftChunk = [UniChar](repeating: 0, count: 256)
+    var rightChunk = [UniChar](repeating: 0, count: 256)
+    while length < limit {
+        let count = min(256, limit - length)
+        CFStringGetCharacters(left, CFRange(location: length, length: count), &leftChunk)
+        CFStringGetCharacters(right, CFRange(location: length, length: count), &rightChunk)
+        var index = 0
+        while index < count, leftChunk[index] == rightChunk[index] { index += 1 }
+        length += index
+        if index < count { break }
+    }
+    var location = 0
+    while location < length {
+        var leftRun = CFRange()
+        var rightRun = CFRange()
+        let leftAttributes = CFAttributedStringGetAttributes(a, location, &leftRun)
+        let rightAttributes = CFAttributedStringGetAttributes(b, location, &rightRun)
+        guard CFEqual(leftAttributes, rightAttributes) else { return location }
+        location = min(leftRun.location + leftRun.length, rightRun.location + rightRun.length)
+    }
+    return length
 }
