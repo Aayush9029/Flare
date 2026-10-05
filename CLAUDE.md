@@ -245,9 +245,10 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
 - Settings sections and cards sit on `.ultraThinMaterial` so the window's glass shows through; the
   grouped form's own section fill is opaque.
 - The General pane's GIFs play through `AnimatedImageView`: frames decode on a queue of its own
-  into the screen's colour space, and playback pauses while the window is hidden. An animating
+  into the window's colour space, and playback pauses while the window is hidden. An animating
   `NSImageView` decoded every frame in the main thread's commit (ImageIO's own animator too):
-  the first Settings open took 317 ms of main thread, now 144 ms.
+  the first Settings open took 317 ms of main thread, now 144 ms. Read `NSWindow.colorSpace`,
+  not `NSScreen.colorSpace`, which blocked the main thread for up to 200 ms.
 - Images reach the composer by drop on the panel, by paste, or by ⌘⇧C (`captureToChat`), which
   hides the panel, runs `screencapture -i`, attaches the shot and opens the panel again. The
   composer's field editor takes Command-V first and drops anything that is not text, so

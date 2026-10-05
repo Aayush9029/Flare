@@ -53,8 +53,9 @@ final class AnimatedImageView: NSView {
             return
         }
         guard player == nil else { return }
-        // Frames drawn in the screen's colour space commit without a conversion.
-        let space = window.screen?.colorSpace?.cgColorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
+        // Frames drawn in the window's colour space commit without a conversion. Not the
+        // screen's: `NSScreen.colorSpace` blocked the main thread for up to 200 ms.
+        let space = window.colorSpace?.cgColorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
         let player = GIFPlayer(url: url, colorSpace: space)
         player.play { [weak self] frame in self?.layer?.contents = frame }
         self.player = player
