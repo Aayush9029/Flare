@@ -56,6 +56,9 @@ public final class FlareModel {
     public private(set) var liveReasoningEndedAt: Date?
     @ObservationIgnored private var relays: [ChatMessage.ID: MessageRelays] = [:]
 
+    /// Kept apart from `palette` so the views that only show or hide the palette are
+    /// not re-rendered by every keystroke and result set inside it.
+    public private(set) var isPalettePresented = false
     public private(set) var palette = CommandPaletteState()
     /// The message whose reasoning fills the panel, until Escape or the close button.
     public private(set) var presentedReasoning: ChatMessage?
@@ -170,11 +173,11 @@ public final class FlareModel {
     }
 
     public func togglePalette() {
-        palette.isPresented ? closePalette() : openPalette()
+        isPalettePresented ? closePalette() : openPalette()
     }
 
     public func openPalette() {
-        palette.isPresented = true
+        isPalettePresented = true
         palette.query = ""
         palette.highlighted = nil
         refreshPalette()
@@ -182,7 +185,7 @@ public final class FlareModel {
 
     public func closePalette() {
         searchTask?.cancel()
-        palette.isPresented = false
+        isPalettePresented = false
         palette.query = ""
         palette.hits = []
     }
@@ -557,7 +560,6 @@ public struct QueuedMessage: Identifiable, Equatable, Sendable {
 }
 
 public struct CommandPaletteState: Equatable, Sendable {
-    public var isPresented = false
     public var query = ""
     public var hits: IdentifiedArrayOf<SearchHit> = []
     public var highlighted: SearchHit.ID?

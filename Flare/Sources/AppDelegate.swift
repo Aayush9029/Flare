@@ -32,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowClient.createPanel(content)
         windowClient.setCancelHandler { [weak model] in
             guard let model else { return }
-            if model.palette.isPresented {
+            if model.isPalettePresented {
                 model.closePalette()
             } else if model.isModelPickerPresented {
                 model.dismissModelPicker()

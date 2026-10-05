@@ -68,13 +68,13 @@ public struct PanelContentView: View {
         // The panel has no title bar; any spot that nothing else claims drags it.
         .gesture(WindowDragGesture())
         .overlay(alignment: .top) {
-            if model.palette.isPresented {
+            if model.isPalettePresented {
                 CommandPaletteView(model: model)
                     .padding(12)
                     .transition(.scale(scale: 0.96, anchor: .top).combined(with: .opacity))
             }
         }
-        .animation(.bouncy(duration: 0.28), value: model.palette.isPresented)
+        .animation(.bouncy(duration: 0.28), value: model.isPalettePresented)
         .background(hiddenShortcuts)
     }
 

@@ -64,7 +64,7 @@ struct ComposerView: View {
         .task(id: model.selectedThreadID) { isFocused = true }
         // Cancelling the palette leaves the thread unchanged, so nothing else
         // would hand first responder back to the field.
-        .onChange(of: model.palette.isPresented) { _, shown in
+        .onChange(of: model.isPalettePresented) { _, shown in
             if !shown { isFocused = true }
         }
         .onChange(of: model.presentedReasoning?.id) { _, shown in
