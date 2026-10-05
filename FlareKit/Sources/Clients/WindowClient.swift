@@ -149,7 +149,8 @@ private final class PanelHost: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.backgroundColor = .clear
         panel.isOpaque = false
-        panel.isMovableByWindowBackground = true
+        // Not movable by window background: WindowDragGesture drags it, and that flag made
+        // AppKit rebuild the drag region over every text view on each layout and scroll.
         panel.hasShadow = true
         panel.minSize = NSSize(width: 420, height: 420)
         panel.animationBehavior = .utilityWindow

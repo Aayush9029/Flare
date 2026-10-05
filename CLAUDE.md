@@ -193,9 +193,12 @@ for the whole stream and climbed with length; this one sits near 20 percent and 
   in and ⌘, in the panel is the way to Settings; the card says so.
 - The panel hides when it resigns key, with three exemptions: a tracking `NSMenu` (the model
   picker lives inside the panel), a key Settings window, and the "Float on top" preference.
-- The panel drags from any spot nothing else claims (`WindowDragGesture` on the content) and
-  autosaves its frame under `FlarePanel`. The autosave name is set after the first placement, not
-  at creation: naming at creation saves the empty starting frame, and the first show restores that
+- The panel drags from any spot nothing else claims (`WindowDragGesture` on the content), not
+  `isMovableByWindowBackground`: with that on, AppKit rebuilt the drag region over every text
+  view on each layout, a third of the main thread while scrolling a long chat (2.0 s to 1.4 s per
+  150 wheel events, 32 frames over 16 ms to none). It autosaves its frame under `FlarePanel`.
+  The autosave name is set after the first placement, not at creation: naming at creation saves
+  the empty starting frame, and the first show restores that
   corner instead of the pointer's screen. "Restore last position" in General turns the restore off.
   Without a frame to restore, `PanelPosition` (bottom left, bottom right, center) chosen in the
   Position cards decides where it opens, 16 points in from the edges, `PanelSize` (compact, half,
